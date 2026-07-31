@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: location-backend
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/agence_location}
+    username: ${SPRING_DATASOURCE_USERNAME:agence}
+    password: ${SPRING_DATASOURCE_PASSWORD:agence_pwd}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+  flyway:
+    enabled: true
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+app:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:replace_me_super_secret_32_chars_min}
+      access-expiration-seconds: ${JWT_ACCESS_EXPIRATION:900}
+      refresh-expiration-seconds: ${JWT_REFRESH_EXPIRATION:604800}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:8081}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
