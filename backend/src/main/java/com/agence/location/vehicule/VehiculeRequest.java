@@ -10,13 +10,14 @@ public record VehiculeRequest(
     @NotBlank String marque,
     @NotBlank String modele,
     @NotNull @Min(1950) Integer annee,
-    @NotNull VehiculeStatut statut,
+    VehiculeStatut statut,
     @NotNull @Min(0) Long kilometrage,
-    @NotBlank String categorie,
     @NotBlank String couleur,
     LocalDate assuranceExpiration,
     LocalDate controleTechniqueExpiration,
     @Min(0) Long prochainEntretienKm,
+    @Min(0) Long derniereVidangeKm,
+    LocalDate derniereVidangeDate,
     LocalDate prochaineMaintenanceDate
 ) {
 }

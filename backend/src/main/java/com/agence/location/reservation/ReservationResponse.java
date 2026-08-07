@@ -13,5 +13,7 @@ public record ReservationResponse(
     BigDecimal tarifJournalier,
     BigDecimal acompteTnd,
     BigDecimal cautionTnd,
+    Long kilometrageDepart,
+    Long kilometrageRetour,
     BigDecimal prixEstime
 ) {}

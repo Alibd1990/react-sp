@@ -41,10 +41,6 @@ public class Vehicule {
 
   @Column(nullable = false)
   private Long kilometrage;
-
-  @Column(nullable = false)
-  private String categorie;
-
   @Column(nullable = false)
   private String couleur;
 
@@ -59,6 +55,12 @@ public class Vehicule {
 
   @Column(name = "prochain_entretien_km")
   private Long prochainEntretienKm;
+
+  @Column(name = "derniere_vidange_km")
+  private Long derniereVidangeKm;
+
+  @Column(name = "derniere_vidange_date")
+  private LocalDate derniereVidangeDate;
 
   @Column(name = "prochaine_maintenance_date")
   private LocalDate prochaineMaintenanceDate;

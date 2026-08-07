@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Box,
@@ -80,18 +80,6 @@ const occupancyWeekData = [
   { day: 'Ven', value: 86 },
   { day: 'Sam', value: 91 },
   { day: 'Dim', value: 84 }
-];
-
-const alerts = [
-  { severity: 'warning', text: '3 vehicules a entretenir sous 48h.' },
-  { severity: 'info', text: '5 contrats arrivent a echeance cette semaine.' },
-  { severity: 'error', text: 'Site B - Aeroport a un taux d occupation eleve.' }
-];
-
-const recentReservations = [
-  { client: 'Sami Ben Ali', vehicle: 'Renault Clio', status: 'en cours' },
-  { client: 'Nour Haddad', vehicle: 'Hyundai Tucson', status: 'a venir' },
-  { client: 'Mourad Trabelsi', vehicle: 'Ford Transit', status: 'terminee' }
 ];
 
 function MiniBars({ data, color }) {
@@ -223,23 +211,40 @@ function KpiCard({ icon, title, value, detail, color }) {
 }
 
 export default function DashboardPage() {
+  const [dashboardAlerts, setDashboardAlerts] = useState({
+    vehiculesEnMaintenance: [],
+    vehiculesVidangeAlerte: [],
+    reservationsProchesEcheance: [],
+    reservationsTermineesFacturees: []
+  });
   const allSpots = useMemo(() => Object.values(parkingSites).flat(), []);
   const freeSpots = allSpots.filter((spot) => spot.status === 'free').length;
   const occupiedSpots = allSpots.filter((spot) => spot.status === 'occupied').length;
   const reservedSpots = allSpots.filter((spot) => spot.status === 'reserved').length;
   const occupancyRate = Math.round(((occupiedSpots + reservedSpots) / allSpots.length) * 100);
-  const activeReservations = recentReservations.filter((reservation) => reservation.status !== 'terminee').length;
+  const activeReservations = dashboardAlerts.reservationsProchesEcheance.length;
 
   useEffect(() => {
-    const refreshHint = async () => {
+    const refreshDashboard = async () => {
       try {
-        await api.get('/vehicules');
+        const res = await api.get('/dashboard/alertes');
+        setDashboardAlerts(res.data || {
+          vehiculesEnMaintenance: [],
+          vehiculesVidangeAlerte: [],
+          reservationsProchesEcheance: [],
+          reservationsTermineesFacturees: []
+        });
       } catch {
-        // dashboard is mock-first and resilient when backend is unavailable
+        setDashboardAlerts({
+          vehiculesEnMaintenance: [],
+          vehiculesVidangeAlerte: [],
+          reservationsProchesEcheance: [],
+          reservationsTermineesFacturees: []
+        });
       }
     };
 
-    refreshHint();
+    refreshDashboard();
   }, []);
 
   return (
@@ -324,9 +329,10 @@ export default function DashboardPage() {
                 <Typography variant="body2" color="text.secondary">Surveillance des risques et priorites operationnelles.</Typography>
               </Box>
               <Stack spacing={1.3}>
-                {alerts.map((alert) => (
-                  <Alert key={alert.text} severity={alert.severity}>{alert.text}</Alert>
-                ))}
+                <Alert severity="info">Maintenance: {dashboardAlerts.vehiculesEnMaintenance.length} vehicule(s)</Alert>
+                <Alert severity="warning">Vidange >= 4 500 km: {dashboardAlerts.vehiculesVidangeAlerte.length} vehicule(s)</Alert>
+                <Alert severity="info">Echeances proches: {dashboardAlerts.reservationsProchesEcheance.length} reservation(s)</Alert>
+                <Alert severity="success">Factures auto generees: {dashboardAlerts.reservationsTermineesFacturees.length} reservation(s)</Alert>
               </Stack>
               <Box>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>Actions rapides</Typography>
@@ -390,24 +396,31 @@ export default function DashboardPage() {
       <Card sx={{ p: 2.5, borderRadius: 4 }}>
         <Stack spacing={1.5}>
           <Box>
-            <Typography variant="h6">Reservations recentes / a venir</Typography>
-            <Typography variant="body2" color="text.secondary">Actions rapides disponibles depuis le dashboard.</Typography>
+            <Typography variant="h6">Reservations proches d'echeance</Typography>
+            <Typography variant="body2" color="text.secondary">Reservations a suivre sur les prochains jours.</Typography>
           </Box>
           <Grid container spacing={2}>
-            {recentReservations.map((reservation) => (
-              <Grid item xs={12} md={4} key={`${reservation.client}-${reservation.vehicle}`}>
+            {dashboardAlerts.reservationsProchesEcheance.map((reservation) => (
+              <Grid item xs={12} md={4} key={reservation.reservationId}>
                 <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
                   <Stack spacing={1}>
                     <Typography variant="subtitle1">{reservation.client}</Typography>
-                    <Typography variant="body2" color="text.secondary">{reservation.vehicle}</Typography>
+                    <Typography variant="body2" color="text.secondary">{reservation.vehicule}</Typography>
                     <Stack direction="row" alignItems="center" spacing={1}>
                       <ScheduleRoundedIcon fontSize="small" color="action" />
-                      <Typography variant="caption" color="text.secondary">{reservation.status}</Typography>
+                      <Typography variant="caption" color="text.secondary">fin: {reservation.dateFin}</Typography>
                     </Stack>
                   </Stack>
                 </Paper>
               </Grid>
             ))}
+            {dashboardAlerts.reservationsProchesEcheance.length === 0 && (
+              <Grid item xs={12}>
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+                  <Typography variant="body2" color="text.secondary">Aucune reservation proche d'echeance.</Typography>
+                </Paper>
+              </Grid>
+            )}
           </Grid>
         </Stack>
       </Card>

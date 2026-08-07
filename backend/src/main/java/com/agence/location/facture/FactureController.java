@@ -1,7 +1,9 @@
 package com.agence.location.facture;
 
 import jakarta.validation.Valid;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -46,5 +48,12 @@ public class FactureController {
   @PreAuthorize("hasAnyRole('ADMIN','AGENT')")
   public void delete(@PathVariable Long id) {
     factureService.delete(id);
+  }
+
+  @PostMapping("/auto-generate")
+  @PreAuthorize("hasAnyRole('ADMIN','AGENT')")
+  public Map<String, Integer> autoGenerate() {
+    int generated = factureService.generateAutomaticFactures(LocalDate.now());
+    return Map.of("generated", generated);
   }
 }

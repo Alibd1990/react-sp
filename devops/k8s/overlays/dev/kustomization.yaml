@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: agence-dev
+resources:
+  - ../../base
+patchesStrategicMerge:
+  - patch-configmap.yaml
+  - patch-ingress.yaml
+images:
+  - name: ghcr.io/your-org/agence-backend
+    newTag: dev-latest
+  - name: ghcr.io/your-org/agence-frontend
+    newTag: dev-latest

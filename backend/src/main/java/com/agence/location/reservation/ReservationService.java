@@ -43,6 +43,8 @@ public class ReservationService {
         request.tarifJournalier(),
         request.acompteTnd(),
         request.cautionTnd(),
+        request.kilometrageDepart(),
+        request.kilometrageRetour(),
         status,
         null,
         null
@@ -70,6 +72,8 @@ public class ReservationService {
         request.tarifJournalier(),
       request.acompteTnd(),
       request.cautionTnd(),
+      request.kilometrageDepart(),
+      request.kilometrageRetour(),
         request.statut(),
       id,
       reservation.getStatut()
@@ -95,6 +99,8 @@ public class ReservationService {
       BigDecimal tarifJournalier,
       BigDecimal acompteTnd,
       BigDecimal cautionTnd,
+      Long kilometrageDepart,
+      Long kilometrageRetour,
       ReservationStatus statut,
       Long reservationIdForUpdate,
       ReservationStatus previousStatus
@@ -116,6 +122,17 @@ public class ReservationService {
 
     if (statut == ReservationStatus.CONFIRMEE && zeroIfNull(cautionTnd).compareTo(BigDecimal.ZERO) <= 0) {
       throw new BusinessException("Caution obligatoire pour confirmer la reservation");
+    }
+
+    if ((statut == ReservationStatus.EN_COURS || statut == ReservationStatus.TERMINEE || statut == ReservationStatus.CLOTUREE)
+        && kilometrageDepart == null) {
+      throw new BusinessException("Kilometrage depart obligatoire pour une reservation en cours/terminee");
+    }
+    if ((statut == ReservationStatus.TERMINEE || statut == ReservationStatus.CLOTUREE) && kilometrageRetour == null) {
+      throw new BusinessException("Kilometrage retour obligatoire pour une reservation terminee/cloturee");
+    }
+    if (kilometrageDepart != null && kilometrageRetour != null && kilometrageRetour < kilometrageDepart) {
+      throw new BusinessException("Kilometrage retour invalide (inferieur au kilometrage depart)");
     }
 
     if (vehicule.getStatut() == VehiculeStatut.EN_MAINTENANCE
@@ -146,6 +163,8 @@ public class ReservationService {
     reservation.setTarifJournalier(tarifJournalier);
     reservation.setAcompteTnd(zeroIfNull(acompteTnd));
     reservation.setCautionTnd(zeroIfNull(cautionTnd));
+    reservation.setKilometrageDepart(kilometrageDepart);
+    reservation.setKilometrageRetour(kilometrageRetour);
     reservation.setPrixEstime(computePrice(tarifJournalier, dateDebut, dateFin));
 
     syncVehiculeStatusAfterReservationChange(previousVehicule, previousStatus, vehicule, statut);
@@ -253,6 +272,8 @@ public class ReservationService {
         reservation.getTarifJournalier(),
         reservation.getAcompteTnd(),
         reservation.getCautionTnd(),
+        reservation.getKilometrageDepart(),
+        reservation.getKilometrageRetour(),
         reservation.getPrixEstime()
     );
   }

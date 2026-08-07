@@ -3,6 +3,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -20,6 +21,7 @@ import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded';
+import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import { DataGrid } from '@mui/x-data-grid';
@@ -32,12 +34,13 @@ const emptyForm = {
   annee: '',
   statut: 'DISPONIBLE',
   kilometrage: '',
-  categorie: '',
-  couleur: ''
+  couleur: '',
+  prochainEntretienKm: '',
+  derniereVidangeKm: '',
+  derniereVidangeDate: ''
 };
 
 const statusOptions = ['DISPONIBLE', 'RESERVE', 'EN_LOCATION', 'EN_MAINTENANCE', 'HORS_SERVICE', 'RETIRE_DU_PARC'];
-const categoryOptions = ['citadine', 'SUV', 'utilitaire', 'premium'];
 const brandModels = {
   Peugeot: ['208', '3008', 'Partner'],
   Renault: ['Clio', 'Megane', 'Kangoo'],
@@ -47,14 +50,6 @@ const brandModels = {
   Toyota: ['Yaris', 'Corolla', 'Hilux']
 };
 
-const colorOptions = ['Blanc', 'Noir', 'Gris', 'Bleu', 'Rouge', 'Vert', 'Beige', 'Argent'];
-
-const categoryColor = {
-  citadine: '#1a73e8',
-  suv: '#344767',
-  utilitaire: '#fb8c00',
-  premium: '#2e7d32'
-};
 
 export default function FleetPage() {
   const [rows, setRows] = useState([]);
@@ -64,9 +59,14 @@ export default function FleetPage() {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(false);
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState('');
+  const [historyRows, setHistoryRows] = useState([]);
+  const [historyVehiculeLabel, setHistoryVehiculeLabel] = useState('');
   const [brandFilter, setBrandFilter] = useState('toutes');
   const [modelFilter, setModelFilter] = useState('tous');
-  const [categoryFilter, setCategoryFilter] = useState('toutes');
+  
   const [statusFilter, setStatusFilter] = useState('tous');
 
   const loadRows = async () => {
@@ -104,8 +104,10 @@ export default function FleetPage() {
       annee: row.annee ?? '',
       statut: row.statut || 'DISPONIBLE',
       kilometrage: row.kilometrage ?? '',
-      categorie: row.categorie || '',
-      couleur: row.couleur || ''
+      couleur: row.couleur || '',
+      prochainEntretienKm: row.prochainEntretienKm ?? '',
+      derniereVidangeKm: row.derniereVidangeKm ?? '',
+      derniereVidangeDate: row.derniereVidangeDate || ''
     });
     setSubmitError('');
     setDialogOpen(true);
@@ -122,28 +124,32 @@ export default function FleetPage() {
     setForm((prev) => ({ ...prev, [field]: event.target.value }));
   };
 
-  const onChangeMarque = (event) => {
-    const marque = event.target.value;
-    const allowedModels = brandModels[marque] || [];
-    setForm((prev) => ({
-      ...prev,
-      marque,
-      modele: allowedModels.includes(prev.modele) ? prev.modele : (allowedModels[0] || '')
-    }));
+  const openHistory = async (row) => {
+    setHistoryVehiculeLabel(`${row.immatriculation} - ${row.marque} ${row.modele}`);
+    setHistoryDialogOpen(true);
+    setHistoryLoading(true);
+    setHistoryError('');
+    try {
+      const res = await api.get(`/vehicules/${row.id}/historique-reservations`);
+      setHistoryRows((res.data || []).map((item) => ({ ...item, id: item.reservationId })));
+    } catch {
+      setHistoryError('Impossible de charger l\'historique des reservations');
+      setHistoryRows([]);
+    } finally {
+      setHistoryLoading(false);
+    }
   };
 
   const filteredRows = rows.filter((item) => {
     const rowBrand = String(item.marque || '');
     const rowModel = String(item.modele || '');
-    const rowCategory = String(item.categorie || '').toLowerCase();
     const rowStatus = String(item.statut || '');
 
     const matchBrand = brandFilter === 'toutes' || rowBrand === brandFilter;
     const matchModel = modelFilter === 'tous' || rowModel === modelFilter;
-    const matchCategory = categoryFilter === 'toutes' || rowCategory === categoryFilter.toLowerCase();
     const matchStatus = statusFilter === 'tous' || rowStatus === statusFilter;
 
-    return matchBrand && matchModel && matchCategory && matchStatus;
+    return matchBrand && matchModel && matchStatus;
   });
 
   const saveVehicule = async () => {
@@ -157,8 +163,10 @@ export default function FleetPage() {
         annee: Number(form.annee),
         statut: form.statut,
         kilometrage: Number(form.kilometrage),
-        categorie: String(form.categorie || '').trim(),
-        couleur: String(form.couleur || '').trim()
+        couleur: String(form.couleur || '').trim(),
+        prochainEntretienKm: form.prochainEntretienKm === '' ? null : Number(form.prochainEntretienKm),
+        derniereVidangeKm: form.derniereVidangeKm === '' ? null : Number(form.derniereVidangeKm),
+        derniereVidangeDate: form.derniereVidangeDate || null
       };
 
       if (editingId) {
@@ -195,32 +203,33 @@ export default function FleetPage() {
     { field: 'marque', headerName: 'Marque', flex: 1 },
     { field: 'modele', headerName: 'Modele', flex: 1 },
     { field: 'annee', headerName: 'Annee', flex: 0.7 },
+    
+    { field: 'statut', headerName: 'Statut', flex: 1 },
+    { field: 'kilometrage', headerName: 'Km', flex: 0.8 },
     {
-      field: 'categorie',
-      headerName: 'Categorie',
+      field: 'vidange',
+      headerName: 'Vidange',
       flex: 1,
+      sortable: false,
+      filterable: false,
       renderCell: (params) => {
-        const value = String(params.row.categorie || '').toLowerCase();
+        const currentKm = Number(params.row.kilometrage || 0);
+        const lastKm = params.row.derniereVidangeKm == null ? null : Number(params.row.derniereVidangeKm);
+        if (lastKm == null) {
+          return <Chip size="small" label="Non renseignee" variant="outlined" />;
+        }
+        const delta = Math.max(0, currentKm - lastKm);
+        const needsAlert = delta >= 4500;
         return (
-          <Box
-            sx={{
-              px: 1,
-              py: 0.4,
-              borderRadius: 10,
-              color: '#fff',
-              fontSize: 12,
-              fontWeight: 700,
-              textTransform: 'capitalize',
-              bgcolor: categoryColor[value] || '#7b809a'
-            }}
-          >
-            {params.row.categorie || '-'}
-          </Box>
+          <Chip
+            size="small"
+            color={needsAlert ? 'warning' : 'success'}
+            label={`${delta} km depuis vidange`}
+            variant={needsAlert ? 'filled' : 'outlined'}
+          />
         );
       }
     },
-    { field: 'statut', headerName: 'Statut', flex: 1 },
-    { field: 'kilometrage', headerName: 'Km', flex: 0.8 },
     {
       field: 'couleur',
       headerName: 'Couleur',
@@ -253,6 +262,15 @@ export default function FleetPage() {
       filterable: false,
       renderCell: (params) => (
         <Stack direction="row" spacing={1} sx={{ py: 0.5 }}>
+          <Button
+            size="small"
+            variant="outlined"
+            aria-label="historique reservations"
+            onClick={() => openHistory(params.row)}
+            sx={{ minWidth: 36 }}
+          >
+            <HistoryRoundedIcon fontSize="small" />
+          </Button>
           <Button
             size="small"
             variant="outlined"
@@ -381,19 +399,7 @@ export default function FleetPage() {
             <MenuItem key={model} value={model}>{model}</MenuItem>
           ))}
         </TextField>
-        <TextField
-          select
-          size="small"
-          label="Categorie"
-          value={categoryFilter}
-          onChange={(event) => setCategoryFilter(event.target.value)}
-          sx={{ minWidth: 150 }}
-        >
-          <MenuItem value="toutes">Toutes</MenuItem>
-          {categoryOptions.map((category) => (
-            <MenuItem key={category} value={category}>{category}</MenuItem>
-          ))}
-        </TextField>
+        
         <TextField
           select
           size="small"
@@ -430,16 +436,8 @@ export default function FleetPage() {
             {submitError && <Alert severity="error">{submitError}</Alert>}
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
               <TextField label="Immatriculation" value={form.immatriculation} onChange={onChangeField('immatriculation')} />
-              <TextField select label="Marque" value={form.marque} onChange={onChangeMarque}>
-                {Object.keys(brandModels).map((brand) => (
-                  <MenuItem key={brand} value={brand}>{brand}</MenuItem>
-                ))}
-              </TextField>
-              <TextField select label="Modele" value={form.modele} onChange={onChangeField('modele')} disabled={!form.marque}>
-                {(brandModels[form.marque] || []).map((model) => (
-                  <MenuItem key={model} value={model}>{model}</MenuItem>
-                ))}
-              </TextField>
+              <TextField label="Marque" value={form.marque} onChange={onChangeField('marque')} />
+              <TextField label="Modele" value={form.modele} onChange={onChangeField('modele')} />
               <TextField label="Annee" type="number" value={form.annee} onChange={onChangeField('annee')} />
               <TextField select label="Statut" value={form.statut} onChange={onChangeField('statut')}>
                 {statusOptions.map((status) => (
@@ -447,16 +445,10 @@ export default function FleetPage() {
                 ))}
               </TextField>
               <TextField label="Kilometrage" type="number" value={form.kilometrage} onChange={onChangeField('kilometrage')} />
-              <TextField select label="Categorie" value={form.categorie} onChange={onChangeField('categorie')}>
-                {categoryOptions.map((category) => (
-                  <MenuItem key={category} value={category}>{category}</MenuItem>
-                ))}
-              </TextField>
-              <TextField select label="Couleur" value={form.couleur} onChange={onChangeField('couleur')}>
-                {colorOptions.map((color) => (
-                  <MenuItem key={color} value={color}>{color}</MenuItem>
-                ))}
-              </TextField>
+              <TextField label="Derniere vidange (km)" type="number" value={form.derniereVidangeKm} onChange={onChangeField('derniereVidangeKm')} />
+              <TextField label="Date derniere vidange" type="date" InputLabelProps={{ shrink: true }} value={form.derniereVidangeDate} onChange={onChangeField('derniereVidangeDate')} />
+              <TextField label="Prochain entretien (km)" type="number" value={form.prochainEntretienKm} onChange={onChangeField('prochainEntretienKm')} />
+              <TextField label="Couleur" value={form.couleur} onChange={onChangeField('couleur')} />
             </Box>
           </Stack>
         </DialogContent>
@@ -466,6 +458,39 @@ export default function FleetPage() {
           </Button>
           <Button variant="contained" aria-label={editingId ? 'enregistrer vehicule' : 'ajouter vehicule'} onClick={saveVehicule} disabled={loading} sx={{ minWidth: 44 }}>
             <CheckRoundedIcon fontSize="small" />
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={historyDialogOpen} onClose={() => setHistoryDialogOpen(false)} fullWidth maxWidth="md">
+        <DialogTitle>Historique reservations - {historyVehiculeLabel}</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1.5} sx={{ mt: 1 }}>
+            {historyError && <Alert severity="error">{historyError}</Alert>}
+            <Box sx={{ '& .MuiDataGrid-root': { border: 0 } }}>
+              <DataGrid
+                autoHeight
+                loading={historyLoading}
+                rows={historyRows}
+                columns={[
+                  { field: 'reservationId', headerName: '#', width: 70 },
+                  { field: 'clientNom', headerName: 'Client', flex: 1.2 },
+                  { field: 'dateDebut', headerName: 'Date debut', flex: 1 },
+                  { field: 'dateFin', headerName: 'Date fin', flex: 1 },
+                  { field: 'statut', headerName: 'Statut', flex: 1 },
+                  { field: 'kilometrageDepart', headerName: 'Km depart', flex: 1 },
+                  { field: 'kilometrageRetour', headerName: 'Km retour', flex: 1 },
+                  { field: 'montantLocation', headerName: 'Montant (TND)', flex: 1 }
+                ]}
+                pageSizeOptions={[5, 10]}
+                initialState={{ pagination: { paginationModel: { pageSize: 5, page: 0 } } }}
+              />
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button aria-label="fermer historique" onClick={() => setHistoryDialogOpen(false)} sx={{ minWidth: 44 }}>
+            <CloseRoundedIcon fontSize="small" />
           </Button>
         </DialogActions>
       </Dialog>

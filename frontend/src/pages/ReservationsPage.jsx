@@ -29,6 +29,8 @@ const emptyForm = {
   tarifJournalier: '',
   acompteTnd: '',
   cautionTnd: '',
+  kilometrageDepart: '',
+  kilometrageRetour: '',
   statut: 'EN_ATTENTE'
 };
 
@@ -89,6 +91,8 @@ export default function ReservationsPage() {
       tarifJournalier: row.tarifJournalier,
       acompteTnd: row.acompteTnd ?? '',
       cautionTnd: row.cautionTnd ?? '',
+      kilometrageDepart: row.kilometrageDepart ?? '',
+      kilometrageRetour: row.kilometrageRetour ?? '',
       statut: row.statut
     });
     setSubmitError('');
@@ -108,6 +112,8 @@ export default function ReservationsPage() {
           tarifJournalier: Number(form.tarifJournalier),
           acompteTnd: form.acompteTnd === '' ? null : Number(form.acompteTnd),
           cautionTnd: form.cautionTnd === '' ? null : Number(form.cautionTnd),
+          kilometrageDepart: form.kilometrageDepart === '' ? null : Number(form.kilometrageDepart),
+          kilometrageRetour: form.kilometrageRetour === '' ? null : Number(form.kilometrageRetour),
           statut: form.statut
         });
       } else {
@@ -118,7 +124,9 @@ export default function ReservationsPage() {
           dateFin: form.dateFin,
           tarifJournalier: Number(form.tarifJournalier),
           acompteTnd: form.acompteTnd === '' ? null : Number(form.acompteTnd),
-          cautionTnd: form.cautionTnd === '' ? null : Number(form.cautionTnd)
+          cautionTnd: form.cautionTnd === '' ? null : Number(form.cautionTnd),
+          kilometrageDepart: form.kilometrageDepart === '' ? null : Number(form.kilometrageDepart),
+          kilometrageRetour: form.kilometrageRetour === '' ? null : Number(form.kilometrageRetour)
         });
       }
       setDialogOpen(false);
@@ -161,6 +169,8 @@ export default function ReservationsPage() {
     { field: 'tarifJournalier', headerName: 'Tarif/jour (TND)', flex: 0.9 },
     { field: 'acompteTnd', headerName: 'Acompte (TND)', flex: 0.8 },
     { field: 'cautionTnd', headerName: 'Caution (TND)', flex: 0.8 },
+    { field: 'kilometrageDepart', headerName: 'Km depart', flex: 0.8 },
+    { field: 'kilometrageRetour', headerName: 'Km retour', flex: 0.8 },
     { field: 'statut', headerName: 'Statut', flex: 0.8 },
     { field: 'prixEstime', headerName: 'Prix estime (TND)', flex: 0.9 },
     {
@@ -224,6 +234,8 @@ export default function ReservationsPage() {
               <TextField type="number" label="Tarif journalier (TND)" value={form.tarifJournalier} onChange={onChange('tarifJournalier')} />
               <TextField type="number" label="Acompte (TND)" value={form.acompteTnd} onChange={onChange('acompteTnd')} />
               <TextField type="number" label="Caution (TND)" value={form.cautionTnd} onChange={onChange('cautionTnd')} />
+              <TextField type="number" label="Kilometrage depart" value={form.kilometrageDepart} onChange={onChange('kilometrageDepart')} />
+              <TextField type="number" label="Kilometrage retour" value={form.kilometrageRetour} onChange={onChange('kilometrageRetour')} />
               <TextField select label="Statut" value={form.statut} onChange={onChange('statut')} disabled={!editingId}>
                 {statusOptions.map((status) => (
                   <MenuItem key={status} value={status}>{status}</MenuItem>

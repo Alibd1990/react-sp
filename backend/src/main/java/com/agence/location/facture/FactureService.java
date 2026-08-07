@@ -4,6 +4,9 @@ import com.agence.location.common.exception.BusinessException;
 import com.agence.location.reservation.Reservation;
 import com.agence.location.reservation.ReservationRepository;
 import com.agence.location.reservation.ReservationStatus;
+import com.agence.location.vehicule.Vehicule;
+import com.agence.location.vehicule.VehiculeStatut;
+import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -42,12 +45,41 @@ public class FactureService {
     factureRepository.delete(facture);
   }
 
+  @Transactional
+  public int generateAutomaticFactures(LocalDate today) {
+    int generated = 0;
+    List<Reservation> dueReservations = reservationRepository.findDueForAutoCompletion(today);
+    for (Reservation reservation : dueReservations) {
+      if (factureRepository.existsByReservationId(reservation.getId())) {
+        if (reservation.getStatut() != ReservationStatus.TERMINEE) {
+          reservation.setStatut(ReservationStatus.TERMINEE);
+          releaseVehiculeIfAllowed(reservation.getVehicule());
+        }
+        continue;
+      }
+
+      reservation.setStatut(ReservationStatus.TERMINEE);
+      releaseVehiculeIfAllowed(reservation.getVehicule());
+
+      Facture facture = new Facture();
+      facture.setReservation(reservation);
+      facture.setDateEmission(today);
+      facture.setMontantTnd(reservation.getPrixEstime());
+      facture.setStatut(FactureStatut.EMISE);
+      facture.setNotes(buildAutoInvoiceNotes(reservation));
+      factureRepository.save(facture);
+      generated++;
+    }
+    return generated;
+  }
+
   private void apply(Facture facture, FactureRequest request) {
     Reservation reservation = reservationRepository.findById(request.reservationId())
         .orElseThrow(() -> new BusinessException("Reservation introuvable"));
 
-    if (reservation.getStatut() != ReservationStatus.CLOTUREE) {
-      throw new BusinessException("Facturation autorisee uniquement pour une reservation cloturee");
+    if (reservation.getStatut() != ReservationStatus.CLOTUREE
+        && reservation.getStatut() != ReservationStatus.TERMINEE) {
+      throw new BusinessException("Facturation autorisee uniquement pour une reservation terminee ou cloturee");
     }
 
     facture.setReservation(reservation);
@@ -55,6 +87,27 @@ public class FactureService {
     facture.setMontantTnd(request.montantTnd());
     facture.setStatut(request.statut());
     facture.setNotes(request.notes() == null ? null : request.notes().trim());
+  }
+
+  private String buildAutoInvoiceNotes(Reservation reservation) {
+    return String.format(
+        "Facture auto generee | Client=%s | Vehicule=%s | Periode=%s->%s | KmDepart=%s | KmRetour=%s",
+        reservation.getClient().getNom(),
+        reservation.getVehicule().getImmatriculation(),
+        reservation.getDateDebut(),
+        reservation.getDateFin(),
+        reservation.getKilometrageDepart() == null ? "N/A" : reservation.getKilometrageDepart(),
+        reservation.getKilometrageRetour() == null ? "N/A" : reservation.getKilometrageRetour()
+    );
+  }
+
+  private void releaseVehiculeIfAllowed(Vehicule vehicule) {
+    if (vehicule.getStatut() == VehiculeStatut.EN_MAINTENANCE
+        || vehicule.getStatut() == VehiculeStatut.HORS_SERVICE
+        || vehicule.getStatut() == VehiculeStatut.RETIRE_DU_PARC) {
+      return;
+    }
+    vehicule.setStatut(VehiculeStatut.DISPONIBLE);
   }
 
   private FactureResponse toResponse(Facture facture) {

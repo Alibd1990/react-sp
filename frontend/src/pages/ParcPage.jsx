@@ -52,6 +52,35 @@ export default function ParcPage() {
 		setVehicles((prev) => prev.map((row) => (row.id === id ? { ...row, ...updates } : row)));
 	};
 
+	const persistStatus = async (row, nextStatut) => {
+		setError('');
+		const previousStatut = row.statut;
+		updateRow(row.id, { statut: nextStatut });
+		try {
+			const payload = {
+				immatriculation: row.immatriculation,
+				marque: row.marque,
+				modele: row.modele,
+				annee: Number(row.annee),
+				statut: nextStatut,
+				kilometrage: Number(row.kilometrage),
+				couleur: row.couleur,
+				assuranceExpiration: row.assuranceExpiration || null,
+				controleTechniqueExpiration: row.controleTechniqueExpiration || null,
+				prochainEntretienKm: row.prochainEntretienKm ?? null,
+				derniereVidangeKm: row.derniereVidangeKm ?? null,
+				derniereVidangeDate: row.derniereVidangeDate || null,
+				prochaineMaintenanceDate: row.prochaineMaintenanceDate || null
+			};
+
+			const res = await api.put(`/vehicules/${row.id}`, payload);
+			updateRow(row.id, res.data);
+		} catch (err) {
+			updateRow(row.id, { statut: previousStatut });
+			setError(err?.response?.data?.message || 'Mise a jour du statut echouee');
+		}
+	};
+
 	const total = vehicles.length;
 	const inMaintenance = vehicles.filter((vehicle) => vehicle.statut === 'EN_MAINTENANCE').length;
 	const outOfService = vehicles.filter((vehicle) => vehicle.statut === 'HORS_SERVICE').length;
@@ -62,7 +91,6 @@ export default function ParcPage() {
 		{ field: 'marque', headerName: 'Marque', flex: 1 },
 		{ field: 'modele', headerName: 'Modele', flex: 1 },
 		{ field: 'couleur', headerName: 'Couleur', flex: 0.9 },
-		{ field: 'categorie', headerName: 'Categorie', flex: 0.9 },
 		{
 			field: 'statut',
 			headerName: 'Statut',
@@ -79,9 +107,7 @@ export default function ParcPage() {
 						value={params.row.statut}
 						onChange={(event) => {
 							const nextStatut = event.target.value;
-							updateRow(params.row.id, {
-								statut: nextStatut
-							});
+							persistStatus(params.row, nextStatut);
 						}}
 						sx={{ minWidth: 140 }}
 					>
@@ -100,13 +126,13 @@ export default function ParcPage() {
 			filterable: false,
 			renderCell: (params) => (
 				<Stack direction="row" spacing={0.5} sx={{ py: 0.5 }}>
-					<IconButton size="small" color="info" aria-label="mettre en maintenance" onClick={() => updateRow(params.row.id, { statut: 'EN_MAINTENANCE' })}>
+					<IconButton size="small" color="info" aria-label="mettre en maintenance" onClick={() => persistStatus(params.row, 'EN_MAINTENANCE')}>
 						<BlockRoundedIcon fontSize="small" />
 					</IconButton>
-					<IconButton size="small" color="warning" aria-label="bloquer vehicule" onClick={() => updateRow(params.row.id, { statut: 'HORS_SERVICE' })}>
+					<IconButton size="small" color="warning" aria-label="bloquer vehicule" onClick={() => persistStatus(params.row, 'HORS_SERVICE')}>
 						<HandymanRoundedIcon fontSize="small" />
 					</IconButton>
-					<IconButton size="small" color="success" aria-label="remettre disponible" onClick={() => updateRow(params.row.id, { statut: 'DISPONIBLE' })}>
+					<IconButton size="small" color="success" aria-label="remettre disponible" onClick={() => persistStatus(params.row, 'DISPONIBLE')}>
 						<CheckCircleRoundedIcon fontSize="small" />
 					</IconButton>
 				</Stack>

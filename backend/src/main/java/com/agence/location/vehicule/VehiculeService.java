@@ -1,6 +1,7 @@
 package com.agence.location.vehicule;
 
 import com.agence.location.common.exception.BusinessException;
+import com.agence.location.reservation.Reservation;
 import com.agence.location.reservation.ReservationRepository;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -19,15 +20,45 @@ public class VehiculeService {
     return vehiculeRepository.findAll();
   }
 
+  public List<VehiculeReservationHistoryItem> findReservationHistory(Long vehiculeId) {
+    if (!vehiculeRepository.existsById(vehiculeId)) {
+      throw new BusinessException("Vehicule introuvable");
+    }
+
+    List<Reservation> history = reservationRepository.findHistoriqueByVehiculeId(vehiculeId);
+    return history.stream().map((reservation) -> new VehiculeReservationHistoryItem(
+        reservation.getId(),
+        reservation.getClient().getId(),
+        reservation.getClient().getNom(),
+        reservation.getDateDebut(),
+        reservation.getDateFin(),
+        reservation.getStatut(),
+        reservation.getKilometrageDepart(),
+        reservation.getKilometrageRetour(),
+        reservation.getPrixEstime()
+    )).toList();
+  }
+
   public List<Vehicule> findDisponibles(LocalDate debut, LocalDate fin) {
+    if (fin.isBefore(debut)) {
+      throw new BusinessException("dateFin doit etre >= dateDebut");
+    }
+
     LocalDate now = LocalDate.now();
     List<Long> reservedIds = reservationRepository.findReservedVehiculeIds(debut, fin);
     return vehiculeRepository.findAll().stream()
-        .filter(v -> v.getStatut() == VehiculeStatut.DISPONIBLE)
-      .filter(v -> isDateValid(v.getAssuranceExpiration(), now))
-      .filter(v -> isDateValid(v.getControleTechniqueExpiration(), now))
+        .filter(this::isStatutEligibleForAvailability)
+        .filter(v -> isDateValid(v.getAssuranceExpiration(), now))
+        .filter(v -> isDateValid(v.getControleTechniqueExpiration(), now))
         .filter(v -> !reservedIds.contains(v.getId()))
         .toList();
+  }
+
+  private boolean isStatutEligibleForAvailability(Vehicule vehicule) {
+    VehiculeStatut statut = vehicule.getStatut();
+    return statut != VehiculeStatut.HORS_SERVICE
+        && statut != VehiculeStatut.RETIRE_DU_PARC
+        && statut != VehiculeStatut.EN_MAINTENANCE;
   }
 
   public Vehicule create(VehiculeRequest request) {
@@ -36,7 +67,7 @@ public class VehiculeService {
     }
 
     Vehicule vehicule = new Vehicule();
-    apply(vehicule, request);
+    apply(vehicule, request, true);
     return vehiculeRepository.save(vehicule);
   }
 
@@ -44,11 +75,19 @@ public class VehiculeService {
     Vehicule vehicule = vehiculeRepository.findById(id)
         .orElseThrow(() -> new BusinessException("Vehicule introuvable"));
 
+    VehiculeStatut previousStatus = vehicule.getStatut();
+
     if (vehiculeRepository.existsByImmatriculationAndIdNot(request.immatriculation(), id)) {
       throw new BusinessException("Immatriculation deja utilisee");
     }
 
-    apply(vehicule, request);
+    apply(vehicule, request, false);
+    if (previousStatus == VehiculeStatut.EN_MAINTENANCE
+        && vehicule.getStatut() != VehiculeStatut.EN_MAINTENANCE
+        && vehicule.getStatut() != VehiculeStatut.HORS_SERVICE
+        && vehicule.getStatut() != VehiculeStatut.RETIRE_DU_PARC) {
+      reconcileStatusAfterMaintenance(vehicule);
+    }
     return vehiculeRepository.save(vehicule);
   }
 
@@ -61,35 +100,44 @@ public class VehiculeService {
     vehiculeRepository.delete(vehicule);
   }
 
-  private void apply(Vehicule vehicule, VehiculeRequest request) {
+  private void apply(Vehicule vehicule, VehiculeRequest request, boolean creating) {
     vehicule.setImmatriculation(request.immatriculation().trim());
     vehicule.setMarque(request.marque().trim());
     vehicule.setModele(request.modele().trim());
     vehicule.setAnnee(request.annee());
     vehicule.setKilometrage(request.kilometrage());
-    vehicule.setCategorie(request.categorie().trim());
     vehicule.setCouleur(request.couleur().trim());
     vehicule.setTarifJour(BigDecimal.ZERO);
     vehicule.setAssuranceExpiration(request.assuranceExpiration());
     vehicule.setControleTechniqueExpiration(request.controleTechniqueExpiration());
-    vehicule.setProchainEntretienKm(request.prochainEntretienKm());
+    Long prochainEntretienKm = request.prochainEntretienKm();
+    if (prochainEntretienKm == null && request.derniereVidangeKm() != null) {
+      prochainEntretienKm = request.derniereVidangeKm() + 5000;
+    }
+    vehicule.setProchainEntretienKm(prochainEntretienKm);
+    vehicule.setDerniereVidangeKm(request.derniereVidangeKm());
+    vehicule.setDerniereVidangeDate(request.derniereVidangeDate());
     vehicule.setProchaineMaintenanceDate(request.prochaineMaintenanceDate());
 
-    VehiculeStatut resolved = request.statut();
-    LocalDate today = LocalDate.now();
-    if (request.assuranceExpiration() != null && request.assuranceExpiration().isBefore(today)) {
-      resolved = VehiculeStatut.HORS_SERVICE;
-    } else if (request.controleTechniqueExpiration() != null && request.controleTechniqueExpiration().isBefore(today)) {
-      resolved = VehiculeStatut.HORS_SERVICE;
-    } else if (request.prochainEntretienKm() != null && request.kilometrage() >= request.prochainEntretienKm()) {
-      resolved = VehiculeStatut.EN_MAINTENANCE;
-    } else if (request.prochaineMaintenanceDate() != null && !request.prochaineMaintenanceDate().isAfter(today)) {
-      resolved = VehiculeStatut.EN_MAINTENANCE;
-    }
+    VehiculeStatut resolved = request.statut() != null
+        ? request.statut()
+        : (creating ? VehiculeStatut.DISPONIBLE : vehicule.getStatut());
     vehicule.setStatut(resolved);
   }
 
   private boolean isDateValid(LocalDate expiration, LocalDate now) {
     return expiration == null || !expiration.isBefore(now);
+  }
+
+  private void reconcileStatusAfterMaintenance(Vehicule vehicule) {
+    LocalDate today = LocalDate.now();
+    boolean hasActiveRental = reservationRepository.existsActiveRentalOnDate(vehicule.getId(), today);
+    if (hasActiveRental) {
+      vehicule.setStatut(VehiculeStatut.EN_LOCATION);
+      return;
+    }
+
+    boolean hasPlannedReservation = reservationRepository.existsPlannedReservationFromDate(vehicule.getId(), today);
+    vehicule.setStatut(hasPlannedReservation ? VehiculeStatut.RESERVE : VehiculeStatut.DISPONIBLE);
   }
 }

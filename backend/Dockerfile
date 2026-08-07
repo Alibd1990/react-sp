@@ -12,8 +12,13 @@ RUN mvn -B -DskipTests -Dmaven.wagon.http.retryHandler.count=5 -Dmaven.wagon.htt
 
 FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
-RUN useradd -ms /bin/bash appuser
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends curl ca-certificates \
+	&& rm -rf /var/lib/apt/lists/* \
+	&& useradd --create-home --shell /usr/sbin/nologin appuser
 COPY --from=build /app/target/*.jar app.jar
 USER appuser
+ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 CMD curl -fsS http://localhost:8080/actuator/health || exit 1
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]

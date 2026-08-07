@@ -1,0 +1,123 @@
+nameOverride: ""
+fullnameOverride: ""
+
+namespace: ""
+
+imagePullSecrets: []
+
+backend:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/your-org/agence-backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  probes:
+    startup:
+      path: /actuator/health
+      failureThreshold: 30
+      periodSeconds: 5
+    liveness:
+      path: /actuator/health/liveness
+      initialDelaySeconds: 30
+      periodSeconds: 10
+    readiness:
+      path: /actuator/health/readiness
+      initialDelaySeconds: 10
+      periodSeconds: 5
+
+frontend:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/your-org/agence-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8080
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+postgres:
+  enabled: true
+  image: postgres:16-alpine
+  storageSize: 20Gi
+  servicePort: 5432
+
+config:
+  SPRING_PROFILES_ACTIVE: dev
+  SERVER_PORT: "8080"
+  CORS_ALLOWED_ORIGINS: https://app-dev.example.com
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/agence_location
+  VITE_API_BASE_URL: https://api-dev.example.com/api/v1
+
+secret:
+  SPRING_DATASOURCE_USERNAME: agence
+  SPRING_DATASOURCE_PASSWORD: change_me
+  POSTGRES_DB: agence_location
+  POSTGRES_USER: agence
+  POSTGRES_PASSWORD: change_me
+  JWT_SECRET: replace_me_super_secret_32_chars_min
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  tls:
+    enabled: true
+    secretName: agence-tls
+  hosts:
+    frontend: app-dev.example.com
+    backend: api-dev.example.com
+
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  cpuAverageUtilization: 70
+  memoryAverageUtilization: 75
+
+serviceAccount:
+  create: true
+  name: agence-app
+
+rbac:
+  create: true
+
+networkPolicy:
+  enabled: true
+
+resourceQuota:
+  enabled: true
+  requestsCpu: "4"
+  requestsMemory: 8Gi
+  limitsCpu: "8"
+  limitsMemory: 16Gi
+  pods: "50"
+
+podSecurityContext:
+  runAsNonRoot: true
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL

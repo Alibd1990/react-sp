@@ -30,6 +30,11 @@ public class VehiculeController {
     return vehiculeService.findAll();
   }
 
+  @GetMapping("/{id}/historique-reservations")
+  public List<VehiculeReservationHistoryItem> historiqueReservations(@PathVariable Long id) {
+    return vehiculeService.findReservationHistory(id);
+  }
+
   @GetMapping("/disponibilite")
   public List<Vehicule> disponibilite(
       @RequestParam @NotNull @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateDebut,

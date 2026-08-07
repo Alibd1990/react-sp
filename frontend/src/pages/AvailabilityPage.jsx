@@ -26,8 +26,7 @@ import api from '../api/client';
 const baseColumns = [
   { field: 'immatriculation', headerName: 'Immatriculation', flex: 1 },
   { field: 'marque', headerName: 'Marque', flex: 1 },
-  { field: 'modele', headerName: 'Modele', flex: 1 },
-  { field: 'categorie', headerName: 'Categorie', flex: 1 }
+  { field: 'modele', headerName: 'Modele', flex: 1 }
 ];
 
 export default function AvailabilityPage() {

@@ -55,6 +55,12 @@ public class Reservation {
   @Column(name = "caution_tnd", nullable = false)
   private BigDecimal cautionTnd;
 
+  @Column(name = "kilometrage_depart")
+  private Long kilometrageDepart;
+
+  @Column(name = "kilometrage_retour")
+  private Long kilometrageRetour;
+
   @Column(name = "prix_estime", nullable = false)
   private BigDecimal prixEstime;
 }

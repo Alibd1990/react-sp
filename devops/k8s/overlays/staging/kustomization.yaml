@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: agence-staging
+resources:
+  - ../../base
+patchesStrategicMerge:
+  - patch-configmap.yaml
+  - patch-ingress.yaml
+  - patch-replicas.yaml
+images:
+  - name: ghcr.io/your-org/agence-backend
+    newTag: staging-latest
+  - name: ghcr.io/your-org/agence-frontend
+    newTag: staging-latest
