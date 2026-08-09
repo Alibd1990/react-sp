@@ -5,9 +5,9 @@ metadata:
 spec:
   tls:
     - hosts:
-        - app-dev.example.com
-        - api-dev.example.com
+        - app.localhost
+        - api.localhost
       secretName: agence-dev-tls
   rules:
-    - host: app-dev.example.com
-    - host: api-dev.example.com
+    - host: app.localhost
+    - host: api.localhost

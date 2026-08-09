@@ -5,9 +5,9 @@ metadata:
 spec:
   tls:
     - hosts:
-        - app-staging.example.com
-        - api-staging.example.com
+        - app.localhost
+        - api.localhost
       secretName: agence-staging-tls
   rules:
-    - host: app-staging.example.com
-    - host: api-staging.example.com
+    - host: app.localhost
+    - host: api.localhost
