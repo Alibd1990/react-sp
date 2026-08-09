@@ -8,6 +8,7 @@ import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import { DataGrid } from '@mui/x-data-grid';
 import api from '../api/client';
+import { getApiErrorMessage } from '../api/errors';
 
 export default function ParcPage() {
 	const statusOptions = ['DISPONIBLE', 'RESERVE', 'EN_LOCATION', 'EN_MAINTENANCE', 'HORS_SERVICE', 'RETIRE_DU_PARC'];
@@ -31,8 +32,8 @@ export default function ParcPage() {
 			try {
 				const res = await api.get('/vehicules');
 				setVehicles(res.data.map((item) => ({ ...item, id: item.id })));
-			} catch {
-				setError('Impossible de charger les vehicules');
+			} catch (err) {
+				setError(getApiErrorMessage(err, 'Impossible de charger les vehicules'));
 			}
 		};
 
@@ -77,7 +78,7 @@ export default function ParcPage() {
 			updateRow(row.id, res.data);
 		} catch (err) {
 			updateRow(row.id, { statut: previousStatut });
-			setError(err?.response?.data?.message || 'Mise a jour du statut echouee');
+			setError(getApiErrorMessage(err, 'Mise a jour du statut echouee'));
 		}
 	};
 

@@ -20,6 +20,7 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import { DataGrid } from '@mui/x-data-grid';
 import api from '../api/client';
+import { getApiErrorMessage } from '../api/errors';
 
 const emptyForm = {
   vehiculeId: '',
@@ -31,10 +32,10 @@ const emptyForm = {
   cautionTnd: '',
   kilometrageDepart: '',
   kilometrageRetour: '',
-  statut: 'EN_ATTENTE'
+  statut: 'EN_COURS'
 };
 
-const statusOptions = ['EN_ATTENTE', 'CONFIRMEE', 'EN_COURS', 'TERMINEE', 'CLOTUREE', 'ANNULEE', 'NO_SHOW'];
+const statusOptions = ['EN_COURS', 'TERMINEE', 'CLOTUREE'];
 
 export default function ReservationsPage() {
   const [rows, setRows] = useState([]);
@@ -61,8 +62,8 @@ export default function ReservationsPage() {
       setRows(resReservations.data.map((item) => ({ ...item, id: item.id })));
       setVehicules(resVehicules.data);
       setClients(resClients.data);
-    } catch {
-      setError('Impossible de charger les reservations');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Impossible de charger les reservations'));
     }
   };
 
@@ -132,7 +133,7 @@ export default function ReservationsPage() {
       setDialogOpen(false);
       await loadAll();
     } catch (err) {
-      setSubmitError(err?.response?.data?.message || 'Operation echouee');
+      setSubmitError(getApiErrorMessage(err, 'Operation echouee'));
     } finally {
       setLoading(false);
     }
@@ -146,7 +147,7 @@ export default function ReservationsPage() {
       await api.delete(`/reservations/${row.id}`);
       await loadAll();
     } catch (err) {
-      setError(err?.response?.data?.message || 'Suppression echouee');
+      setError(getApiErrorMessage(err, 'Suppression echouee'));
     }
   };
 

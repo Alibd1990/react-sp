@@ -20,6 +20,7 @@ import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
 import ScheduleRoundedIcon from '@mui/icons-material/ScheduleRounded';
 import api from '../api/client';
+import { getApiErrorMessage } from '../api/errors';
 
 const parkingSites = {
   'Site A - Centre': [
@@ -211,6 +212,7 @@ function KpiCard({ icon, title, value, detail, color }) {
 }
 
 export default function DashboardPage() {
+  const [dashboardError, setDashboardError] = useState('');
   const [dashboardAlerts, setDashboardAlerts] = useState({
     vehiculesEnMaintenance: [],
     vehiculesVidangeAlerte: [],
@@ -226,6 +228,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const refreshDashboard = async () => {
+      setDashboardError('');
       try {
         const res = await api.get('/dashboard/alertes');
         setDashboardAlerts(res.data || {
@@ -234,7 +237,8 @@ export default function DashboardPage() {
           reservationsProchesEcheance: [],
           reservationsTermineesFacturees: []
         });
-      } catch {
+      } catch (err) {
+        setDashboardError(getApiErrorMessage(err, 'Impossible de charger les alertes dashboard'));
         setDashboardAlerts({
           vehiculesEnMaintenance: [],
           vehiculesVidangeAlerte: [],
@@ -249,6 +253,7 @@ export default function DashboardPage() {
 
   return (
     <Stack spacing={3}>
+      {dashboardError && <Alert severity="error">{dashboardError}</Alert>}
       <Paper
         sx={{
           p: { xs: 2.5, md: 3.5 },

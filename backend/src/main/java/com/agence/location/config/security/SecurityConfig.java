@@ -1,6 +1,7 @@
 package com.agence.location.config.security;
 
 import java.util.List;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,6 +10,7 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
@@ -36,6 +38,7 @@ public class SecurityConfig {
         .csrf(csrf -> csrf.disable())
         .cors(Customizer.withDefaults())
         .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+      .exceptionHandling(ex -> ex.authenticationEntryPoint(unauthorizedEntryPoint()))
         .authorizeHttpRequests(auth -> auth
             .requestMatchers("/actuator/health", "/swagger-ui/**", "/v3/api-docs/**", "/api/v1/auth/**").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/v1/vehicules", "/api/v1/vehicules/disponibilite").permitAll()
@@ -48,6 +51,12 @@ public class SecurityConfig {
   @Bean
   public PasswordEncoder passwordEncoder() {
     return NoOpPasswordEncoder.getInstance();
+  }
+
+  @Bean
+  public AuthenticationEntryPoint unauthorizedEntryPoint() {
+    return (request, response, authException) ->
+        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
   }
 
   @Bean

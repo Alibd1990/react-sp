@@ -73,6 +73,26 @@ public class FactureService {
     return generated;
   }
 
+  @Transactional
+  public void ensureAutomaticFactureForReservation(Reservation reservation, LocalDate today) {
+    if (reservation.getStatut() != ReservationStatus.TERMINEE
+        && reservation.getStatut() != ReservationStatus.CLOTUREE) {
+      return;
+    }
+
+    if (factureRepository.existsByReservationId(reservation.getId())) {
+      return;
+    }
+
+    Facture facture = new Facture();
+    facture.setReservation(reservation);
+    facture.setDateEmission(today);
+    facture.setMontantTnd(reservation.getPrixEstime());
+    facture.setStatut(FactureStatut.EMISE);
+    facture.setNotes(buildAutoInvoiceNotes(reservation));
+    factureRepository.save(facture);
+  }
+
   private void apply(Facture facture, FactureRequest request) {
     Reservation reservation = reservationRepository.findById(request.reservationId())
         .orElseThrow(() -> new BusinessException("Reservation introuvable"));

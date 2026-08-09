@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import LoginRoundedIcon from '@mui/icons-material/LoginRounded';
 import api from '../api/client';
+import { getApiErrorMessage } from '../api/errors';
 import { useAuth } from '../auth/AuthContext';
 
 export default function LoginBox() {
@@ -24,8 +25,8 @@ export default function LoginBox() {
         remember
       });
       navigate('/', { replace: true });
-    } catch {
-      setError('Login echoue');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Login echoue'));
     }
   };
 

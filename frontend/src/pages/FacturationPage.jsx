@@ -21,6 +21,7 @@ import PrintRoundedIcon from '@mui/icons-material/PrintRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import api from '../api/client';
+import { getApiErrorMessage } from '../api/errors';
 
 const emptyForm = {
   reservationId: '',
@@ -51,8 +52,8 @@ export default function FacturationPage() {
       ]);
       setRows(facturesRes.data.map((f) => ({ ...f, id: f.id })));
       setReservations(reservationsRes.data);
-    } catch {
-      setError('Impossible de charger la facturation');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Impossible de charger la facturation'));
     }
   };
 
@@ -112,7 +113,7 @@ export default function FacturationPage() {
       setDialogOpen(false);
       await loadAll();
     } catch (err) {
-      setSubmitError(err?.response?.data?.message || 'Operation facture echouee');
+      setSubmitError(getApiErrorMessage(err, 'Operation facture echouee'));
     } finally {
       setLoading(false);
     }
@@ -126,7 +127,7 @@ export default function FacturationPage() {
       await api.delete(`/factures/${row.id}`);
       await loadAll();
     } catch (err) {
-      setError(err?.response?.data?.message || 'Suppression facture echouee');
+      setError(getApiErrorMessage(err, 'Suppression facture echouee'));
     }
   };
 

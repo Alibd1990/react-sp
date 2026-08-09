@@ -26,6 +26,7 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import { DataGrid } from '@mui/x-data-grid';
 import api from '../api/client';
+import { getApiErrorMessage } from '../api/errors';
 
 const emptyForm = {
   immatriculation: '',
@@ -74,8 +75,8 @@ export default function FleetPage() {
     try {
       const res = await api.get('/vehicules');
       setRows(res.data.map((item) => ({ ...item, id: item.id })));
-    } catch {
-      setError('Impossible de charger le catalogue');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Impossible de charger le catalogue'));
     }
   };
 
@@ -132,8 +133,8 @@ export default function FleetPage() {
     try {
       const res = await api.get(`/vehicules/${row.id}/historique-reservations`);
       setHistoryRows((res.data || []).map((item) => ({ ...item, id: item.reservationId })));
-    } catch {
-      setHistoryError('Impossible de charger l\'historique des reservations');
+    } catch (err) {
+      setHistoryError(getApiErrorMessage(err, 'Impossible de charger l\'historique des reservations'));
       setHistoryRows([]);
     } finally {
       setHistoryLoading(false);
@@ -178,7 +179,7 @@ export default function FleetPage() {
       setDialogOpen(false);
       await loadRows();
     } catch (err) {
-      setSubmitError(err?.response?.data?.message || 'Operation echouee');
+      setSubmitError(getApiErrorMessage(err, 'Operation echouee'));
     } finally {
       setLoading(false);
     }
@@ -194,7 +195,7 @@ export default function FleetPage() {
       await api.delete(`/vehicules/${row.id}`);
       await loadRows();
     } catch (err) {
-      setError(err?.response?.data?.message || 'Suppression echouee');
+      setError(getApiErrorMessage(err, 'Suppression echouee'));
     }
   };
 

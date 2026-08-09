@@ -22,6 +22,7 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import { DataGrid } from '@mui/x-data-grid';
 import api from '../api/client';
+import { getApiErrorMessage } from '../api/errors';
 
 const baseColumns = [
   { field: 'immatriculation', headerName: 'Immatriculation', flex: 1 },
@@ -52,8 +53,8 @@ export default function AvailabilityPage() {
       ]);
       setRows(res.data.map((item) => ({ ...item, id: item.id })));
       setClients(clientsRes.data);
-    } catch {
-      setError('Recherche indisponible');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Recherche indisponible'));
     }
   };
 
@@ -85,7 +86,7 @@ export default function AvailabilityPage() {
       setDialogOpen(false);
       await search();
     } catch (err) {
-      setSubmitError(err?.response?.data?.message || 'Creation reservation echouee');
+      setSubmitError(getApiErrorMessage(err, 'Creation reservation echouee'));
     } finally {
       setLoading(false);
     }

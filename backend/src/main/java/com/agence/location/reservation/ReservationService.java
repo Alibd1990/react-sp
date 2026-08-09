@@ -3,6 +3,7 @@ package com.agence.location.reservation;
 import com.agence.location.client.Client;
 import com.agence.location.client.ClientRepository;
 import com.agence.location.common.exception.BusinessException;
+import com.agence.location.facture.FactureService;
 import com.agence.location.vehicule.Vehicule;
 import com.agence.location.vehicule.VehiculeRepository;
 import com.agence.location.vehicule.VehiculeStatut;
@@ -25,6 +26,7 @@ public class ReservationService {
   private final ReservationRepository reservationRepository;
   private final VehiculeRepository vehiculeRepository;
   private final ClientRepository clientRepository;
+  private final FactureService factureService;
 
   public List<ReservationResponse> findAll() {
     return reservationRepository.findAll().stream().map(this::toResponse).toList();
@@ -33,7 +35,7 @@ public class ReservationService {
   @Transactional
   public ReservationResponse create(CreateReservationRequest request) {
     Reservation reservation = new Reservation();
-    ReservationStatus status = ReservationStatus.EN_ATTENTE;
+    ReservationStatus status = ReservationStatus.EN_COURS;
     apply(
         reservation,
         request.vehiculeId(),
@@ -80,6 +82,7 @@ public class ReservationService {
     );
 
     Reservation saved = reservationRepository.save(reservation);
+    factureService.ensureAutomaticFactureForReservation(saved, LocalDate.now());
     return toResponse(saved);
   }
 
@@ -128,8 +131,8 @@ public class ReservationService {
         && kilometrageDepart == null) {
       throw new BusinessException("Kilometrage depart obligatoire pour une reservation en cours/terminee");
     }
-    if ((statut == ReservationStatus.TERMINEE || statut == ReservationStatus.CLOTUREE) && kilometrageRetour == null) {
-      throw new BusinessException("Kilometrage retour obligatoire pour une reservation terminee/cloturee");
+    if (statut == ReservationStatus.CLOTUREE && kilometrageRetour == null) {
+      throw new BusinessException("Kilometrage retour obligatoire pour une reservation cloturee");
     }
     if (kilometrageDepart != null && kilometrageRetour != null && kilometrageRetour < kilometrageDepart) {
       throw new BusinessException("Kilometrage retour invalide (inferieur au kilometrage depart)");
@@ -208,12 +211,10 @@ public class ReservationService {
       return;
     }
 
-    if (from == ReservationStatus.EN_ATTENTE
-        && EnumSet.of(ReservationStatus.CONFIRMEE, ReservationStatus.ANNULEE, ReservationStatus.NO_SHOW).contains(to)) {
+    if (from == ReservationStatus.EN_ATTENTE && to == ReservationStatus.EN_COURS) {
       return;
     }
-    if (from == ReservationStatus.CONFIRMEE
-        && EnumSet.of(ReservationStatus.EN_COURS, ReservationStatus.ANNULEE, ReservationStatus.NO_SHOW).contains(to)) {
+    if (from == ReservationStatus.CONFIRMEE && to == ReservationStatus.EN_COURS) {
       return;
     }
     if (from == ReservationStatus.EN_COURS && to == ReservationStatus.TERMINEE) {

@@ -22,6 +22,7 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import { DataGrid } from '@mui/x-data-grid';
 import api from '../api/client';
+import { getApiErrorMessage } from '../api/errors';
 
 const emptyForm = {
   type: 'PARTICULIER',
@@ -49,8 +50,8 @@ export default function ClientsPage() {
     try {
       const res = await api.get('/clients');
       setRows(res.data.map((item) => ({ ...item, id: item.id })));
-    } catch {
-      setError('Impossible de charger les clients');
+    } catch (err) {
+      setError(getApiErrorMessage(err, 'Impossible de charger les clients'));
     }
   };
 
@@ -98,7 +99,7 @@ export default function ClientsPage() {
       setDialogOpen(false);
       await loadRows();
     } catch (err) {
-      setSubmitError(err?.response?.data?.message || 'Operation echouee');
+      setSubmitError(getApiErrorMessage(err, 'Operation echouee'));
     } finally {
       setLoading(false);
     }
@@ -112,7 +113,7 @@ export default function ClientsPage() {
       await api.delete(`/clients/${row.id}`);
       await loadRows();
     } catch (err) {
-      setError(err?.response?.data?.message || 'Suppression echouee');
+      setError(getApiErrorMessage(err, 'Suppression echouee'));
     }
   };
 
