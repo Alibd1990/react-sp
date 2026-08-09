@@ -34,8 +34,8 @@ docker compose ps
 ```
 
 Services attendus:
-- Frontend: http://app.localhost
-- Backend: http://api.localhost
+- Frontend: http://app192.168.56.8
+- Backend: http://api192.168.56.8
 - PostgreSQL: localhost:5432
 - pgAdmin: http://localhost:8082
 

@@ -100,8 +100,8 @@ Il reference toutes les briques techniques communes:
 
 9. ingress.yaml
 - Routage host-based:
-  - frontend: app.localhost
-  - backend: api.localhost
+  - frontend: app192.168.56.8
+  - backend: api192.168.56.8
 - TLS via cert-manager + ClusterIssuer letsencrypt-prod.
 
 10. hpa.yaml
@@ -149,7 +149,7 @@ Fichiers:
 Effet:
 
 - profile dev
-- hosts app.localhost/api.localhost
+- hosts app192.168.56.8/api192.168.56.8
 - TLS agence-dev-tls
 - images tag dev-latest
 
@@ -165,7 +165,7 @@ Fichiers:
 Effet:
 
 - profile staging
-- hosts app.localhost/api.localhost
+- hosts app192.168.56.8/api192.168.56.8
 - replicas backend/frontend a 2
 - images tag staging-latest
 

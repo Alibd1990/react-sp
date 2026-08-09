@@ -8,11 +8,11 @@ metadata:
 spec:
   tls:
     - hosts:
-        - app.localhost
-        - api.localhost
+        - app192.168.56.8
+        - api192.168.56.8
       secretName: agence-tls
   rules:
-    - host: app.localhost
+    - host: app192.168.56.8
       http:
         paths:
           - path: /
@@ -22,7 +22,7 @@ spec:
                 name: frontend
                 port:
                   number: 80
-    - host: api.localhost
+    - host: api192.168.56.8
       http:
         paths:
           - path: /
