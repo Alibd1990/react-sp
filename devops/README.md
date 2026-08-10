@@ -26,6 +26,9 @@ flowchart LR
 - devops/observability
 - .github/workflows/ci-cd.yml
 
+Guide pas a pas VM + K8s + Helm + Observability + GitHub CI/CD:
+- devops/GUIDE_DEPLOIEMENT_VM_CICD.md
+
 ## Docker local
 
 ```bash
@@ -34,8 +37,8 @@ docker compose ps
 ```
 
 Services attendus:
-- Frontend: http://app192.168.56.8
-- Backend: http://api192.168.56.8
+- Frontend: http://app.192.168.56.8.nip.io
+- Backend: http://api.192.168.56.8.nip.io
 - PostgreSQL: localhost:5432
 - pgAdmin: http://localhost:8082
 

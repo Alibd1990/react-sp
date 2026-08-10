@@ -5,9 +5,9 @@ metadata:
 spec:
   tls:
     - hosts:
-        - app192.168.56.8
-        - api192.168.56.8
+        - app.192.168.56.8.nip.io
+        - api.192.168.56.8.nip.io
       secretName: agence-staging-tls
   rules:
-    - host: app192.168.56.8
-    - host: api192.168.56.8
+    - host: app.192.168.56.8.nip.io
+    - host: api.192.168.56.8.nip.io
