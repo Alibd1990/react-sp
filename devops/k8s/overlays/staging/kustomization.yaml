@@ -3,12 +3,13 @@ kind: Kustomization
 namespace: agence-staging
 resources:
   - ../../base
+  - secret.yaml
 patchesStrategicMerge:
   - patch-configmap.yaml
   - patch-ingress.yaml
   - patch-replicas.yaml
 images:
-  - name: ghcr.io/your-org/agence-backend
+  - name: ghcr.io/alibd1990/agence-backend
     newTag: staging-latest
-  - name: ghcr.io/your-org/agence-frontend
+  - name: ghcr.io/alibd1990/agence-frontend
     newTag: staging-latest

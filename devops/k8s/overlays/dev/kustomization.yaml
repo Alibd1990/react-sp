@@ -3,11 +3,12 @@ kind: Kustomization
 namespace: agence-dev
 resources:
   - ../../base
+  - secret.yaml
 patchesStrategicMerge:
   - patch-configmap.yaml
   - patch-ingress.yaml
 images:
-  - name: ghcr.io/your-org/agence-backend
+  - name: ghcr.io/alibd1990/agence-backend
     newTag: dev-latest
-  - name: ghcr.io/your-org/agence-frontend
+  - name: ghcr.io/alibd1990/agence-frontend
     newTag: dev-latest

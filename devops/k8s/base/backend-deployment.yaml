@@ -28,7 +28,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: backend
-          image: ghcr.io/your-org/agence-backend:latest
+          image: ghcr.io/alibd1990/agence-backend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080

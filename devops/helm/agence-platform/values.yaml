@@ -8,7 +8,7 @@ imagePullSecrets: []
 backend:
   replicaCount: 2
   image:
-    repository: ghcr.io/your-org/agence-backend
+    repository: ghcr.io/alibd1990/agence-backend
     tag: latest
     pullPolicy: IfNotPresent
   service:
@@ -38,7 +38,7 @@ backend:
 frontend:
   replicaCount: 2
   image:
-    repository: ghcr.io/your-org/agence-frontend
+    repository: ghcr.io/alibd1990/agence-frontend
     tag: latest
     pullPolicy: IfNotPresent
   service:

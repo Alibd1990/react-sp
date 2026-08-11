@@ -27,7 +27,7 @@ spec:
         runAsNonRoot: true
       containers:
         - name: frontend
-          image: ghcr.io/your-org/agence-frontend:latest
+          image: ghcr.io/alibd1990/agence-frontend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
