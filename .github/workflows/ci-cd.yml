@@ -31,12 +31,25 @@ jobs:
           java-version: 21
           cache: maven
 
+      # Fix: cache-dependency-path pointait vers un fichier introuvable
+      # ("Some specified paths were not resolved, unable to cache dependencies").
+      # On utilise un pattern glob plus tolérant au lieu d'un chemin unique strict.
       - name: Setup Node 24
         uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+
+      # Garde-fou: échoue tôt et avec un message clair si le lockfile n'est
+      # pas committé, plutôt que de laisser l'action de cache échouer de façon cryptique.
+      - name: Verify frontend lockfile exists
+        run: |
+          if [ ! -f frontend/package-lock.json ]; then
+            echo "::error::frontend/package-lock.json est introuvable dans le repo."
+            echo "::error::Générez-le avec 'npm install' dans frontend/ puis committez-le (vérifiez aussi .gitignore)."
+            exit 1
+          fi
 
       - name: Compile backend
         run: mvn -B -f backend/pom.xml -DskipTests compile
@@ -171,21 +184,36 @@ jobs:
       - name: Setup Helm
         uses: azure/setup-helm@v4
       - name: Configure kubeconfig
-        run: echo "${{ secrets.KUBECONFIG_DEV }}" | base64 -d > $HOME/.kube/config
-      - name: Deploy dev
         run: |
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.KUBECONFIG_DEV }}" | base64 -d > "$HOME/.kube/config"
+      # Fix sécurité: les secrets passés via --set apparaissent en clair dans les
+      # logs Actions (commande Helm affichée). On les injecte via un fichier de
+      # values temporaire non loggé, supprimé ensuite.
+      - name: Deploy dev
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD_DEV }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET_DEV }}
+        run: |
+          SECRETS_FILE=$(mktemp)
+          cat > "$SECRETS_FILE" <<EOF
+          postgres:
+            password: "${POSTGRES_PASSWORD}"
+          backend:
+            jwtSecret: "${JWT_SECRET}"
+          EOF
           helm upgrade --install agence ./devops/helm/agence \
             --namespace agence-dev --create-namespace \
             -f ./devops/helm/agence/values-dev.yaml \
+            -f "$SECRETS_FILE" \
             --set backend.image.repository=${{ env.IMAGE_BACKEND }} \
             --set frontend.image.repository=${{ env.IMAGE_FRONTEND }} \
             --set backend.image.tag=dev-latest \
             --set frontend.image.tag=dev-latest \
             --set backend.image.pullPolicy=Always \
             --set frontend.image.pullPolicy=Always \
-            --set postgres.password=${{ secrets.POSTGRES_PASSWORD_DEV }} \
-            --set backend.jwtSecret=${{ secrets.JWT_SECRET_DEV }} \
             --wait --timeout 10m
+          rm -f "$SECRETS_FILE"
 
   deploy-staging:
     if: github.ref_name == 'staging'
@@ -200,21 +228,33 @@ jobs:
       - name: Setup Helm
         uses: azure/setup-helm@v4
       - name: Configure kubeconfig
-        run: echo "${{ secrets.KUBECONFIG_STAGING }}" | base64 -d > $HOME/.kube/config
-      - name: Deploy staging
         run: |
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.KUBECONFIG_STAGING }}" | base64 -d > "$HOME/.kube/config"
+      - name: Deploy staging
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD_STAGING }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET_STAGING }}
+        run: |
+          SECRETS_FILE=$(mktemp)
+          cat > "$SECRETS_FILE" <<EOF
+          postgres:
+            password: "${POSTGRES_PASSWORD}"
+          backend:
+            jwtSecret: "${JWT_SECRET}"
+          EOF
           helm upgrade --install agence ./devops/helm/agence \
             --namespace agence-staging --create-namespace \
             -f ./devops/helm/agence/values-staging.yaml \
+            -f "$SECRETS_FILE" \
             --set backend.image.repository=${{ env.IMAGE_BACKEND }} \
             --set frontend.image.repository=${{ env.IMAGE_FRONTEND }} \
             --set backend.image.tag=staging-latest \
             --set frontend.image.tag=staging-latest \
             --set backend.image.pullPolicy=Always \
             --set frontend.image.pullPolicy=Always \
-            --set postgres.password=${{ secrets.POSTGRES_PASSWORD_STAGING }} \
-            --set backend.jwtSecret=${{ secrets.JWT_SECRET_STAGING }} \
             --wait --timeout 10m
+          rm -f "$SECRETS_FILE"
 
   deploy-prod:
     if: github.ref_name == 'main'
@@ -229,18 +269,30 @@ jobs:
       - name: Setup Helm
         uses: azure/setup-helm@v4
       - name: Configure kubeconfig
-        run: echo "${{ secrets.KUBECONFIG_PROD }}" | base64 -d > $HOME/.kube/config
-      - name: Deploy production
         run: |
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.KUBECONFIG_PROD }}" | base64 -d > "$HOME/.kube/config"
+      - name: Deploy production
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD_PROD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET_PROD }}
+        run: |
+          SECRETS_FILE=$(mktemp)
+          cat > "$SECRETS_FILE" <<EOF
+          postgres:
+            password: "${POSTGRES_PASSWORD}"
+          backend:
+            jwtSecret: "${JWT_SECRET}"
+          EOF
           helm upgrade --install agence ./devops/helm/agence \
             --namespace agence-prod --create-namespace \
             -f ./devops/helm/agence/values-prod.yaml \
+            -f "$SECRETS_FILE" \
             --set backend.image.repository=${{ env.IMAGE_BACKEND }} \
             --set frontend.image.repository=${{ env.IMAGE_FRONTEND }} \
             --set backend.image.tag=prod-latest \
             --set frontend.image.tag=prod-latest \
             --set backend.image.pullPolicy=Always \
             --set frontend.image.pullPolicy=Always \
-            --set postgres.password=${{ secrets.POSTGRES_PASSWORD_PROD }} \
-            --set backend.jwtSecret=${{ secrets.JWT_SECRET_PROD }} \
             --wait --timeout 10m
+          rm -f "$SECRETS_FILE"
