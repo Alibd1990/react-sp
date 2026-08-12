@@ -57,11 +57,15 @@ jobs:
         working-directory: frontend
 
       - name: SonarQube analysis
-        if: ${{ secrets.SONAR_TOKEN != '' && secrets.SONAR_HOST_URL != '' }}
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        run: mvn -B -f backend/pom.xml sonar:sonar -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN
+        run: |
+          if [ -n "$SONAR_TOKEN" ] && [ -n "$SONAR_HOST_URL" ]; then
+            mvn -B -f backend/pom.xml sonar:sonar -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN
+          else
+            echo "SONAR_TOKEN/SONAR_HOST_URL non définis, analyse Sonar ignorée."
+          fi
 
   trivy-scan:
     needs: build-and-test
