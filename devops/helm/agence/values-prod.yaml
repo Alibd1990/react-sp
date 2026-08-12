@@ -1,0 +1,29 @@
+# Surcharges pour l'environnement production (deploy-prod, namespace agence-prod)
+# Domaines distincts front/API comme dans .env.prod (CORS_ALLOWED_ORIGINS)
+# postgres.password / backend.jwtSecret NE DOIVENT PAS rester ceux de values.yaml :
+# la CI les ecrase via --set depuis secrets.POSTGRES_PASSWORD_PROD / JWT_SECRET_PROD.
+host: app.agence.production
+apiHost: api.agence.production
+
+backend:
+  springProfile: prod
+  corsAllowedOrigins: https://app.agence.production,https://api.agence.production
+  jwtAccessExpiration: "3600"
+  jwtRefreshExpiration: "2592000"
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 2
+      memory: 1Gi
+
+postgres:
+  db: agence_location
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1
+      memory: 1Gi

@@ -1,0 +1,51 @@
+host: localhost # accessible via http://localhost:8090 (voir devops/k8s/kind-cluster.yaml)
+apiHost: "" # si renseigne, cree un 2e host d'ingress dedie a l'API (sinon /api sur `host`)
+
+postgres:
+  image: postgres:16-alpine
+  db: agence_location
+  user: agence
+  password: agence_pwd
+  storage: 1Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+backend:
+  image:
+    repository: agence-backend
+    tag: local
+    pullPolicy: IfNotPresent
+  springProfile: dev
+  jwtSecret: dev_secret_key_32_chars_minimum_!!!!
+  jwtAccessExpiration: "900"
+  jwtRefreshExpiration: "604800"
+  corsAllowedOrigins: http://localhost:8090
+  resources:
+    requests:
+      cpu: 200m
+      memory: 384Mi
+    limits:
+      cpu: 1
+      memory: 768Mi
+
+frontend:
+  image:
+    repository: agence-frontend
+    tag: local
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 128Mi
+
+ingress:
+  enabled: true
+  className: nginx

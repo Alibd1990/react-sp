@@ -1,34 +1,30 @@
+# Ingress local sans TLS/cert-manager, expose l'app sur http://localhost
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: agence-ingress
+  namespace: agence
+  labels:
+    app.kubernetes.io/part-of: agence-location
   annotations:
-    kubernetes.io/ingress.class: nginx
-    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "20m"
 spec:
-  tls:
-    - hosts:
-        - app.192.168.56.8.nip.io
-        - api.192.168.56.8.nip.io
-      secretName: agence-tls
+  ingressClassName: nginx
   rules:
-    - host: app.192.168.56.8.nip.io
+    - host: localhost
       http:
         paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8080
           - path: /
             pathType: Prefix
             backend:
               service:
                 name: frontend
-                port:
-                  number: 80
-    - host: api.192.168.56.8.nip.io
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: backend
                 port:
                   number: 8080

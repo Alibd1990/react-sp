@@ -40,7 +40,7 @@ public class SecurityConfig {
         .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
       .exceptionHandling(ex -> ex.authenticationEntryPoint(unauthorizedEntryPoint()))
         .authorizeHttpRequests(auth -> auth
-            .requestMatchers("/actuator/health", "/swagger-ui/**", "/v3/api-docs/**", "/api/v1/auth/**").permitAll()
+            .requestMatchers("/actuator/health/**", "/swagger-ui/**", "/v3/api-docs/**", "/api/v1/auth/**").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/v1/vehicules", "/api/v1/vehicules/disponibilite").permitAll()
             .anyRequest().authenticated())
         .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

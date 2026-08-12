@@ -1,0 +1,11 @@
+# Surcharges pour l'environnement dev (deploy-dev, namespace agence-dev)
+host: dev.agence.local
+apiHost: ""
+
+backend:
+  springProfile: dev
+  corsAllowedOrigins: http://dev.agence.local
+  # image.repository/tag sont ecrases par --set depuis la CI (GHCR + tag dev-latest)
+
+postgres:
+  db: agence_location

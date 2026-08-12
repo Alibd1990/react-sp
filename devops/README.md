@@ -1,155 +1,138 @@
-# Plateforme DevOps - Spring Boot + React
+# DevOps – déploiement Kubernetes local & CI/CD
 
-## Architecture cible
+Ce dossier centralise toute la configuration de déploiement du projet (backend
+Spring Boot, frontend React/Vite, PostgreSQL) : un cluster **local** (`kind`)
+exposé sur `http://localhost` pour le développement, et le même chart Helm
+réutilisé par la CI/CD GitHub Actions pour les environnements dev/staging/prod
+distants. Pas de cert-manager : tout est en HTTP (TLS géré en amont en
+staging/prod si besoin).
+
+```
+devops/
+  k8s/
+    kind-cluster.yaml        # cluster kind avec port 80/443 mappés sur l'hôte
+    base/                    # manifests bruts, un fichier par Kind
+      namespace.yaml
+      postgres/  (configmap, secret, pvc, deployment, service)
+      backend/   (configmap, secret, deployment, service)
+      frontend/  (deployment, service)
+      ingress.yaml
+    overlays/local/          # overlay kustomize pointant vers les images :local
+  helm/agence/               # chart Helm (local ET utilisé par la CI/CD)
+    values.yaml              # defaults (usage local)
+    values-dev.yaml           # surcharges déployées par le job deploy-dev
+    values-staging.yaml       # surcharges déployées par le job deploy-staging
+    values-prod.yaml          # surcharges déployées par le job deploy-prod
+```
+
+Les valeurs (DB, JWT, CORS, ports) reprennent celles de `.env.dev` à la racine
+du repo. Les secrets déclarés ici sont des valeurs de dev déjà publiques dans
+`.env.dev` — à ne jamais réutiliser telles quelles en production.
+
+## 1. Créer le cluster local
+
+```powershell
+kind create cluster --config devops/k8s/kind-cluster.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.11.3/deploy/static/provider/kind/deploy.yaml
+kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=120s
+```
+
+## 2. Construire et charger les images
+
+```powershell
+docker build -t agence-backend:local ./backend
+docker build -t agence-frontend:local --build-arg VITE_API_BASE_URL=http://localhost:8090/api/v1 ./frontend
+kind load docker-image agence-backend:local --name agence-local
+kind load docker-image agence-frontend:local --name agence-local
+```
+
+## 3a. Déployer avec Kustomize (kubectl natif)
+
+```powershell
+kubectl apply -k devops/k8s/overlays/local
+kubectl -n agence rollout status deployment/backend
+kubectl -n agence rollout status deployment/frontend
+```
+
+## 3b. Déployer avec Helm (local)
+
+```powershell
+helm upgrade --install agence devops/helm/agence --namespace agence --create-namespace
+helm status agence -n agence
+```
+
+### Vérifier que Helm fonctionne
+
+```powershell
+helm version                       # CLI installée
+helm list -n agence                # STATUS doit être "deployed"
+helm status agence -n agence       # détail des ressources + NOTES
+helm get values agence -n agence   # valeurs effectivement appliquées
+```
+Si `STATUS` n'est pas `deployed` (ex: `pending-install`, `failed`), inspecter
+avec `kubectl -n agence get pods` puis `kubectl -n agence describe pod <nom>`.
+
+## 4. Accéder à l'application
+
+Ouvrir `http://localhost:8090/` (frontend) — les appels API passent par
+`http://localhost:8090/api/...` via l'Ingress vers le service `backend`.
+(Le port 8090 est utilisé au lieu de 80 car ce dernier est réservé par
+Windows/http.sys sur cette machine.)
+
+## Nettoyage
+
+```powershell
+kubectl delete -k devops/k8s/overlays/local   # ou: helm uninstall agence -n agence
+kind delete cluster --name agence-local
+```
+
+## CI/CD GitHub Actions
+
+Le pipeline [.github/workflows/ci-cd.yml](../.github/workflows/ci-cd.yml)
+utilise ce chart Helm (`devops/helm/agence`) pour déployer automatiquement sur
+de vrais clusters distants (pas le cluster `kind` local) :
 
 ```mermaid
 flowchart LR
-  Dev[Developpeur] --> Git[Git Repository]
-  Git --> CI[GitHub Actions CI/CD]
-  CI --> Reg[(Container Registry GHCR)]
-  CI --> K8s[Kubernetes Cluster]
-  K8s --> Ingress[Ingress NGINX + TLS Cert-Manager]
-  Ingress --> FE[Frontend React Nginx Pods]
-  Ingress --> BE[Backend Spring Boot Pods]
-  BE --> DB[(PostgreSQL StatefulSet)]
-  K8s --> Obs[Prometheus + Grafana + Alertmanager]
-  K8s --> Logs[Loki + Promtail]
+  A[push develop/staging/main] --> B[build-and-test\nmaven + npm]
+  B --> C[trivy-scan\nfilesystem]
+  C --> D[docker-build-push\nGHCR + trivy image scan]
+  D -->|develop| E[deploy-dev\nns agence-dev]
+  D -->|staging| F[deploy-staging\nns agence-staging]
+  D -->|main| G[deploy-prod\nns agence-prod]
 ```
 
-## Arborescence livree
+- **Images** : construites et poussées sur `ghcr.io/<owner>/agence-backend`
+  et `agence-frontend`, taguées `sha-<commit>` + `dev-latest`/`staging-latest`/
+  `prod-latest` selon la branche.
+- **Déploiement** : `helm upgrade --install agence ./devops/helm/agence -f
+  devops/helm/agence/values-<env>.yaml --set backend.image.tag=...` dans le
+  namespace `agence-<env>` du cluster ciblé par le kubeconfig du secret.
+- **Values par environnement** : [values-dev.yaml](helm/agence/values-dev.yaml),
+  [values-staging.yaml](helm/agence/values-staging.yaml),
+  [values-prod.yaml](helm/agence/values-prod.yaml) (host, CORS, profils Spring,
+  ressources). `values-prod.yaml` définit un `apiHost` séparé (API et
+  frontend sur des domaines distincts, comme dans `.env.prod`).
 
-- devops/k8s/base
-- devops/k8s/overlays/dev
-- devops/k8s/overlays/staging
-- devops/k8s/overlays/prod
-- devops/helm/agence-platform
-- devops/observability
-- .github/workflows/ci-cd.yml
+### Secrets GitHub requis (Settings → Secrets and variables → Actions)
 
-Guide pas a pas VM + K8s + Helm + Observability + GitHub CI/CD:
-- devops/GUIDE_DEPLOIEMENT_VM_CICD.md
+| Secret                       | Usage                                              |
+|-------------------------------|-----------------------------------------------------|
+| `KUBECONFIG_DEV`              | kubeconfig (base64) du cluster dev                  |
+| `KUBECONFIG_STAGING`          | kubeconfig (base64) du cluster staging              |
+| `KUBECONFIG_PROD`             | kubeconfig (base64) du cluster prod                 |
+| `POSTGRES_PASSWORD_DEV/STAGING/PROD` | mot de passe PostgreSQL de l'environnement   |
+| `JWT_SECRET_DEV/STAGING/PROD` | secret JWT de l'environnement                       |
+| `SONAR_TOKEN`, `SONAR_HOST_URL` | optionnels, analyse SonarQube                      |
 
-## Docker local
+`GITHUB_TOKEN` (fourni automatiquement) sert à pousser les images sur GHCR.
+Sans ces secrets, les jobs `deploy-*` échouent mais `build-and-test`,
+`trivy-scan` et `docker-build-push` continuent de fonctionner sur chaque PR.
 
-```bash
-docker compose up -d --build
-docker compose ps
+### Tester la config Helm/CI localement sans cluster distant
+
+```powershell
+helm lint devops/helm/agence -f devops/helm/agence/values-dev.yaml
+helm template agence devops/helm/agence -f devops/helm/agence/values-staging.yaml --namespace agence-staging
 ```
 
-Services attendus:
-- Frontend: http://app.192.168.56.8.nip.io
-- Backend: http://api.192.168.56.8.nip.io
-- PostgreSQL: localhost:5432
-- pgAdmin: http://localhost:8082
-
-## Kubernetes avec Kustomize
-
-```bash
-kubectl apply -f devops/k8s/base/namespaces.yaml
-kubectl apply -k devops/k8s/overlays/dev
-kubectl apply -k devops/k8s/overlays/staging
-kubectl apply -k devops/k8s/overlays/prod
-```
-
-## Helm
-
-```bash
-helm upgrade --install agence-platform ./devops/helm/agence-platform \
-  --namespace agence-dev --create-namespace \
-  -f devops/helm/agence-platform/values.yaml \
-  -f devops/helm/agence-platform/values-dev.yaml
-```
-
-Staging:
-
-```bash
-helm upgrade --install agence-platform ./devops/helm/agence-platform \
-  --namespace agence-staging --create-namespace \
-  -f devops/helm/agence-platform/values.yaml \
-  -f devops/helm/agence-platform/values-staging.yaml
-```
-
-Production:
-
-```bash
-helm upgrade --install agence-platform ./devops/helm/agence-platform \
-  --namespace agence-prod --create-namespace \
-  -f devops/helm/agence-platform/values.yaml \
-  -f devops/helm/agence-platform/values-prod.yaml
-```
-
-## CI/CD
-
-Workflow: .github/workflows/ci-cd.yml
-
-Pipeline:
-1. Checkout
-2. Cache Maven + Node
-3. Compile backend
-4. Tests backend
-5. Build frontend
-6. Tests frontend
-7. SonarQube
-8. Trivy fs + images
-9. Build images
-10. Push GHCR
-11. Deploy auto par branche
-
-Mapping des branches:
-- develop -> dev
-- staging -> staging
-- main -> prod (via environnement GitHub production avec approbation manuelle)
-
-Secrets GitHub requis:
-- SONAR_TOKEN
-- SONAR_HOST_URL
-- KUBECONFIG_DEV (base64)
-- KUBECONFIG_STAGING (base64)
-- KUBECONFIG_PROD (base64)
-
-## Zero Downtime
-
-Mecanismes en place:
-- RollingUpdate avec maxUnavailable: 0 et maxSurge: 1
-- Probes startup/readiness/liveness
-- HPA backend
-- Deploy helm --wait
-
-## Rollback
-
-Helm rollback:
-
-```bash
-helm history agence-platform -n agence-prod
-helm rollback agence-platform <REVISION> -n agence-prod
-```
-
-Kubernetes rollout rollback:
-
-```bash
-kubectl rollout history deployment/agence-platform-backend -n agence-prod
-kubectl rollout undo deployment/agence-platform-backend -n agence-prod
-```
-
-## Securite
-
-Controles inclus:
-- Secrets Kubernetes
-- TLS via cert-manager + ingress
-- Containers non-root
-- SecurityContext sans escalation
-- Drop de toutes les capabilities Linux
-- NetworkPolicy par defaut deny
-- ResourceQuota namespace
-- RBAC minimal pour service account
-- Trivy dans CI
-
-## Blue/Green ou Canary
-
-Option recommandee:
-- Utiliser Argo Rollouts pour canary progressif
-- Alternative simple: deux releases Helm (agence-blue/agence-green) et bascule Ingress
-
-## Monitoring et Logs
-
-Details d installation dans devops/observability/README.md

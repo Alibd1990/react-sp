@@ -170,14 +170,17 @@ jobs:
         run: echo "${{ secrets.KUBECONFIG_DEV }}" | base64 -d > $HOME/.kube/config
       - name: Deploy dev
         run: |
-          helm upgrade --install agence-platform ./devops/helm/agence-platform \
+          helm upgrade --install agence ./devops/helm/agence \
             --namespace agence-dev --create-namespace \
-            -f ./devops/helm/agence-platform/values.yaml \
-            -f ./devops/helm/agence-platform/values-dev.yaml \
+            -f ./devops/helm/agence/values-dev.yaml \
             --set backend.image.repository=${{ env.IMAGE_BACKEND }} \
             --set frontend.image.repository=${{ env.IMAGE_FRONTEND }} \
             --set backend.image.tag=dev-latest \
             --set frontend.image.tag=dev-latest \
+            --set backend.image.pullPolicy=Always \
+            --set frontend.image.pullPolicy=Always \
+            --set postgres.password=${{ secrets.POSTGRES_PASSWORD_DEV }} \
+            --set backend.jwtSecret=${{ secrets.JWT_SECRET_DEV }} \
             --wait --timeout 10m
 
   deploy-staging:
@@ -196,14 +199,17 @@ jobs:
         run: echo "${{ secrets.KUBECONFIG_STAGING }}" | base64 -d > $HOME/.kube/config
       - name: Deploy staging
         run: |
-          helm upgrade --install agence-platform ./devops/helm/agence-platform \
+          helm upgrade --install agence ./devops/helm/agence \
             --namespace agence-staging --create-namespace \
-            -f ./devops/helm/agence-platform/values.yaml \
-            -f ./devops/helm/agence-platform/values-staging.yaml \
+            -f ./devops/helm/agence/values-staging.yaml \
             --set backend.image.repository=${{ env.IMAGE_BACKEND }} \
             --set frontend.image.repository=${{ env.IMAGE_FRONTEND }} \
             --set backend.image.tag=staging-latest \
             --set frontend.image.tag=staging-latest \
+            --set backend.image.pullPolicy=Always \
+            --set frontend.image.pullPolicy=Always \
+            --set postgres.password=${{ secrets.POSTGRES_PASSWORD_STAGING }} \
+            --set backend.jwtSecret=${{ secrets.JWT_SECRET_STAGING }} \
             --wait --timeout 10m
 
   deploy-prod:
@@ -222,12 +228,15 @@ jobs:
         run: echo "${{ secrets.KUBECONFIG_PROD }}" | base64 -d > $HOME/.kube/config
       - name: Deploy production
         run: |
-          helm upgrade --install agence-platform ./devops/helm/agence-platform \
+          helm upgrade --install agence ./devops/helm/agence \
             --namespace agence-prod --create-namespace \
-            -f ./devops/helm/agence-platform/values.yaml \
-            -f ./devops/helm/agence-platform/values-prod.yaml \
+            -f ./devops/helm/agence/values-prod.yaml \
             --set backend.image.repository=${{ env.IMAGE_BACKEND }} \
             --set frontend.image.repository=${{ env.IMAGE_FRONTEND }} \
             --set backend.image.tag=prod-latest \
             --set frontend.image.tag=prod-latest \
+            --set backend.image.pullPolicy=Always \
+            --set frontend.image.pullPolicy=Always \
+            --set postgres.password=${{ secrets.POSTGRES_PASSWORD_PROD }} \
+            --set backend.jwtSecret=${{ secrets.JWT_SECRET_PROD }} \
             --wait --timeout 10m

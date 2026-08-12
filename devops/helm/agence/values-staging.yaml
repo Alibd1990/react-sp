@@ -1,0 +1,14 @@
+# Surcharges pour l'environnement staging (deploy-staging, namespace agence-staging)
+# postgres.password / backend.jwtSecret restent ceux de values.yaml en local ;
+# la CI les ecrase via --set depuis secrets.POSTGRES_PASSWORD_STAGING / JWT_SECRET_STAGING.
+host: staging.agence.local
+apiHost: ""
+
+backend:
+  springProfile: staging
+  corsAllowedOrigins: http://staging.agence.local
+  jwtAccessExpiration: "900"
+  jwtRefreshExpiration: "604800"
+
+postgres:
+  db: agence_location

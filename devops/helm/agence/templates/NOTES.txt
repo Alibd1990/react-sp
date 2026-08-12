@@ -1,0 +1,8 @@
+Application deployee (sans cert-manager, HTTP uniquement).
+
+1. "localhost" resout deja vers 127.0.0.1, aucune entree /etc/hosts requise.
+2. Sur kind, le port hote 80 est souvent reserve par le systeme (ex: Windows
+   http.sys) -> voir devops/k8s/kind-cluster.yaml pour le mapping utilise
+   (8090/8443 par defaut) et adapter Values.host/le port en consequence.
+3. Ouvrez http://{{ .Values.host }}/ (ou http://localhost:8090/ si vous suivez
+   devops/README.md).
