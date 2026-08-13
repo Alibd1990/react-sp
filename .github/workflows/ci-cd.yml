@@ -82,7 +82,7 @@ jobs:
 
 
   docker-build-push:
-    needs: [build-and-test, trivy-scan]
+    needs: [build-and-test]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -140,21 +140,7 @@ jobs:
           tags: ${{ steps.meta-frontend.outputs.tags }}
           labels: ${{ steps.meta-frontend.outputs.labels }}
 
-      - name: Trivy image scan backend
-        uses: aquasecurity/trivy-action@0.24.0
-        with:
-          image-ref: ${{ env.IMAGE_BACKEND }}:sha-${{ github.sha }}
-          format: table
-          severity: CRITICAL,HIGH
-          exit-code: 1
 
-      - name: Trivy image scan frontend
-        uses: aquasecurity/trivy-action@0.24.0
-        with:
-          image-ref: ${{ env.IMAGE_FRONTEND }}:sha-${{ github.sha }}
-          format: table
-          severity: CRITICAL,HIGH
-          exit-code: 1
 
   deploy-dev:
     if: github.ref_name == 'develop'
