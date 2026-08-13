@@ -143,35 +143,35 @@ jobs:
 
 
   deploy-dev:
-  if: github.ref_name == 'develop'
-  runs-on: [self-hosted, Windows]
-
-  steps:
-    - name: Check Runner
-      shell: powershell
-      run: |
-        Write-Host "Machine:"
-        hostname
-
-    - name: Check kubectl
-      shell: powershell
-      run: |
-        kubectl version --client
-
-    - name: Check Kubernetes Context
-      shell: powershell
-      run: |
-        kubectl config current-context
-
-    - name: Check Kubernetes Cluster
-      shell: powershell
-      run: |
-        kubectl cluster-info
-
-    - name: Check Nodes
-      shell: powershell
-      run: |
-        kubectl get nodes
+    if: github.ref_name == 'develop'
+    runs-on: [self-hosted, Windows]
+  
+    steps:
+      - name: Check Runner
+        shell: powershell
+        run: |
+          Write-Host "Machine:"
+          hostname
+  
+      - name: Check kubectl
+        shell: powershell
+        run: |
+          kubectl version --client
+  
+      - name: Check Kubernetes Context
+        shell: powershell
+        run: |
+          kubectl config current-context
+  
+      - name: Check Kubernetes Cluster
+        shell: powershell
+        run: |
+          kubectl cluster-info
+  
+      - name: Check Nodes
+        shell: powershell
+        run: |
+          kubectl get nodes
   deploy-staging:
     if: github.ref_name == 'staging'
     needs: docker-build-push
