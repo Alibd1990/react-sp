@@ -158,6 +158,29 @@ jobs:
         run: |
           mkdir -p "$HOME/.kube"
           echo "${{ secrets.KUBECONFIG_DEV }}" | base64 -d > "$HOME/.kube/config"
+
+      # Diagnostic: confirme que le secret existe et que le kubeconfig décodé
+      # est valide, SANS jamais afficher son contenu. Sert à distinguer
+      # "secret absent/vide", "secret pas en base64 valide" et
+      # "bon fichier mais mauvais cluster/contexte" avant que Helm échoue avec
+      # l'erreur peu explicite "connection refused" sur localhost:8080.
+      - name: Verify kubeconfig
+        run: |
+          if [ ! -s "$HOME/.kube/config" ]; then
+            echo "::error::Le fichier kubeconfig est vide. Vérifiez que le secret KUBECONFIG_DEV existe bien"
+            echo "::error::dans Settings > Secrets and variables > Actions (ou dans l'environnement 'development')."
+            exit 1
+          fi
+          if ! grep -q "apiVersion" "$HOME/.kube/config"; then
+            echo "::error::Le fichier décodé ne ressemble pas à un kubeconfig YAML valide."
+            echo "::error::Vérifiez que le secret KUBECONFIG_DEV contient bien le kubeconfig encodé en base64"
+            echo "::error::(commande locale: cat ~/.kube/config | base64 -w0)"
+            exit 1
+          fi
+          kubectl config view --kubeconfig="$HOME/.kube/config" -o jsonpath='{.clusters[0].cluster.server}'
+          echo ""
+          echo "OK: kubeconfig valide, serveur cible affiché ci-dessus."
+
       # Fix sécurité: les secrets passés via --set apparaissent en clair dans les
       # logs Actions (commande Helm affichée). On les injecte via un fichier de
       # values temporaire non loggé, supprimé ensuite.
@@ -202,6 +225,24 @@ jobs:
         run: |
           mkdir -p "$HOME/.kube"
           echo "${{ secrets.KUBECONFIG_STAGING }}" | base64 -d > "$HOME/.kube/config"
+
+      - name: Verify kubeconfig
+        run: |
+          if [ ! -s "$HOME/.kube/config" ]; then
+            echo "::error::Le fichier kubeconfig est vide. Vérifiez que le secret KUBECONFIG_STAGING existe bien"
+            echo "::error::dans Settings > Secrets and variables > Actions (ou dans l'environnement 'staging')."
+            exit 1
+          fi
+          if ! grep -q "apiVersion" "$HOME/.kube/config"; then
+            echo "::error::Le fichier décodé ne ressemble pas à un kubeconfig YAML valide."
+            echo "::error::Vérifiez que le secret KUBECONFIG_STAGING contient bien le kubeconfig encodé en base64"
+            echo "::error::(commande locale: cat ~/.kube/config | base64 -w0)"
+            exit 1
+          fi
+          kubectl config view --kubeconfig="$HOME/.kube/config" -o jsonpath='{.clusters[0].cluster.server}'
+          echo ""
+          echo "OK: kubeconfig valide, serveur cible affiché ci-dessus."
+
       - name: Deploy staging
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD_STAGING }}
@@ -243,6 +284,24 @@ jobs:
         run: |
           mkdir -p "$HOME/.kube"
           echo "${{ secrets.KUBECONFIG_PROD }}" | base64 -d > "$HOME/.kube/config"
+
+      - name: Verify kubeconfig
+        run: |
+          if [ ! -s "$HOME/.kube/config" ]; then
+            echo "::error::Le fichier kubeconfig est vide. Vérifiez que le secret KUBECONFIG_PROD existe bien"
+            echo "::error::dans Settings > Secrets and variables > Actions (ou dans l'environnement 'production')."
+            exit 1
+          fi
+          if ! grep -q "apiVersion" "$HOME/.kube/config"; then
+            echo "::error::Le fichier décodé ne ressemble pas à un kubeconfig YAML valide."
+            echo "::error::Vérifiez que le secret KUBECONFIG_PROD contient bien le kubeconfig encodé en base64"
+            echo "::error::(commande locale: cat ~/.kube/config | base64 -w0)"
+            exit 1
+          fi
+          kubectl config view --kubeconfig="$HOME/.kube/config" -o jsonpath='{.clusters[0].cluster.server}'
+          echo ""
+          echo "OK: kubeconfig valide, serveur cible affiché ci-dessus."
+
       - name: Deploy production
         env:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD_PROD }}
