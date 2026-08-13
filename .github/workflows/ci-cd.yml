@@ -144,38 +144,75 @@ jobs:
 
   deploy-dev:
     if: github.ref_name == 'develop'
-    runs-on: [self-hosted, Windows]
-  
+    needs: docker-build-push
+    runs-on:  [self-hosted, windows]
+    environment: development
     steps:
-      - name: Check Runner
-        shell: powershell
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+      - name: Configure kubeconfig
         run: |
-          Write-Host "Machine:"
-          hostname
-  
-      - name: Check kubectl
-        shell: powershell
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.KUBECONFIG_DEV }}" | base64 -d > "$HOME/.kube/config"
+
+      # Diagnostic: confirme que le secret existe et que le kubeconfig décodé
+      # est valide, SANS jamais afficher son contenu. Sert à distinguer
+      # "secret absent/vide", "secret pas en base64 valide" et
+      # "bon fichier mais mauvais cluster/contexte" avant que Helm échoue avec
+      # l'erreur peu explicite "connection refused" sur localhost:8080.
+      - name: Verify kubeconfig
         run: |
-          kubectl version --client
-  
-      - name: Check Kubernetes Context
-        shell: powershell
+          if [ ! -s "$HOME/.kube/config" ]; then
+            echo "::error::Le fichier kubeconfig est vide. Vérifiez que le secret KUBECONFIG_DEV existe bien"
+            echo "::error::dans Settings > Secrets and variables > Actions (ou dans l'environnement 'development')."
+            exit 1
+          fi
+          if ! grep -q "apiVersion" "$HOME/.kube/config"; then
+            echo "::error::Le fichier décodé ne ressemble pas à un kubeconfig YAML valide."
+            echo "::error::Vérifiez que le secret KUBECONFIG_DEV contient bien le kubeconfig encodé en base64"
+            echo "::error::(commande locale: cat ~/.kube/config | base64 -w0)"
+            exit 1
+          fi
+          kubectl config view --kubeconfig="$HOME/.kube/config" -o jsonpath='{.clusters[0].cluster.server}'
+          echo ""
+          echo "OK: kubeconfig valide, serveur cible affiché ci-dessus."
+
+      # Fix sécurité: les secrets passés via --set apparaissent en clair dans les
+      # logs Actions (commande Helm affichée). On les injecte via un fichier de
+      # values temporaire non loggé, supprimé ensuite.
+      - name: Deploy dev
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD_DEV }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET_DEV }}
         run: |
-          kubectl config current-context
-  
-      - name: Check Kubernetes Cluster
-        shell: powershell
-        run: |
-          kubectl cluster-info
-  
-      - name: Check Nodes
-        shell: powershell
-        run: |
-          kubectl get nodes
+          SECRETS_FILE=$(mktemp)
+          cat > "$SECRETS_FILE" <<EOF
+          postgres:
+            password: "${POSTGRES_PASSWORD}"
+          backend:
+            jwtSecret: "${JWT_SECRET}"
+          EOF
+          helm upgrade --install agence ./devops/helm/agence \
+            --namespace agence-dev --create-namespace \
+            -f ./devops/helm/agence/values-dev.yaml \
+            -f "$SECRETS_FILE" \
+            --set backend.image.repository=${{ env.IMAGE_BACKEND }} \
+            --set frontend.image.repository=${{ env.IMAGE_FRONTEND }} \
+            --set backend.image.tag=dev-latest \
+            --set frontend.image.tag=dev-latest \
+            --set backend.image.pullPolicy=Always \
+            --set frontend.image.pullPolicy=Always \
+            --wait --timeout 10m
+          rm -f "$SECRETS_FILE"
+
   deploy-staging:
     if: github.ref_name == 'staging'
     needs: docker-build-push
-    runs-on: ubuntu-latest
+    runs-on:  [self-hosted, windows]
     environment: staging
     steps:
       - name: Checkout
@@ -233,31 +270,59 @@ jobs:
 
   deploy-prod:
     if: github.ref_name == 'main'
-    runs-on: [self-hosted, Windows]
-  
+    needs: docker-build-push
+    runs-on:  [self-hosted, windows]
+    environment: production
     steps:
-      - name: Check Runner
-        shell: powershell
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+      - name: Configure kubeconfig
         run: |
-          Write-Host "Machine:"
-          hostname
-  
-      - name: Check kubectl
-        shell: powershell
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.KUBECONFIG_PROD }}" | base64 -d > "$HOME/.kube/config"
+
+      - name: Verify kubeconfig
         run: |
-          kubectl version --client
-  
-      - name: Check Kubernetes Context
-        shell: powershell
+          if [ ! -s "$HOME/.kube/config" ]; then
+            echo "::error::Le fichier kubeconfig est vide. Vérifiez que le secret KUBECONFIG_PROD existe bien"
+            echo "::error::dans Settings > Secrets and variables > Actions (ou dans l'environnement 'production')."
+            exit 1
+          fi
+          if ! grep -q "apiVersion" "$HOME/.kube/config"; then
+            echo "::error::Le fichier décodé ne ressemble pas à un kubeconfig YAML valide."
+            echo "::error::Vérifiez que le secret KUBECONFIG_PROD contient bien le kubeconfig encodé en base64"
+            echo "::error::(commande locale: cat ~/.kube/config | base64 -w0)"
+            exit 1
+          fi
+          kubectl config view --kubeconfig="$HOME/.kube/config" -o jsonpath='{.clusters[0].cluster.server}'
+          echo ""
+          echo "OK: kubeconfig valide, serveur cible affiché ci-dessus."
+
+      - name: Deploy production
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD_PROD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET_PROD }}
         run: |
-          kubectl config current-context
-  
-      - name: Check Kubernetes Cluster
-        shell: powershell
-        run: |
-          kubectl cluster-info
-  
-      - name: Check Nodes
-        shell: powershell
-        run: |
-          kubectl get nodes
+          SECRETS_FILE=$(mktemp)
+          cat > "$SECRETS_FILE" <<EOF
+          postgres:
+            password: "${POSTGRES_PASSWORD}"
+          backend:
+            jwtSecret: "${JWT_SECRET}"
+          EOF
+          helm upgrade --install agence ./devops/helm/agence \
+            --namespace agence-prod --create-namespace \
+            -f ./devops/helm/agence/values-prod.yaml \
+            -f "$SECRETS_FILE" \
+            --set backend.image.repository=${{ env.IMAGE_BACKEND }} \
+            --set frontend.image.repository=${{ env.IMAGE_FRONTEND }} \
+            --set backend.image.tag=prod-latest \
+            --set frontend.image.tag=prod-latest \
+            --set backend.image.pullPolicy=Always \
+            --set frontend.image.pullPolicy=Always \
+            --wait --timeout 10m
+          rm -f "$SECRETS_FILE"
