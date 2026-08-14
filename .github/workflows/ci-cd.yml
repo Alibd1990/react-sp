@@ -58,7 +58,15 @@ jobs:
         run: mvn -B -f backend/pom.xml test
 
       - name: Install frontend deps
-        run: npm install
+        shell: powershell
+        run: |
+          if (-not (Test-Path "frontend/package-lock.json")) {
+            Write-Host "package-lock.json missing"
+            exit 1
+          }
+      
+          Set-Location frontend
+          npm install
         working-directory: frontend
 
       - name: Build frontend
